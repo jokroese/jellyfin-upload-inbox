@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>Upload Inbox</title>
+</head>
+<body>
+    <div data-role="page" class="type-interior uploadInboxPage" data-require="emby-input,emby-button">
+        <div data-role="content">
+            <div class="content-primary">
+                <h1>Upload Inbox</h1>
+                <p>Select a target and upload files to the server inbox.</p>
+
+                <div class="inputContainer">
+                    <label for="selectTarget">Target</label>
+                    <select is="emby-select" id="selectTarget" class="selectTarget"></select>
+                </div>
+
+                <div class="inputContainer">
+                    <label>Files</label>
+                    <input is="emby-input" type="file" id="fileInput" multiple />
+                </div>
+
+                <div class="uploadDropZone">
+                    Drag and drop files here
+                </div>
+
+                <div class="uploadQueue"></div>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        .uploadDropZone {
+            border: 2px dashed #888;
+            border-radius: 4px;
+            padding: 1.5em;
+            text-align: center;
+            margin-top: 1em;
+        }
+
+        .uploadDropZone.dragover {
+            border-color: #00a4dc;
+            background-color: rgba(0, 164, 220, 0.1);
+        }
+
+        .uploadItem {
+            margin-top: 1em;
+        }
+
+        .uploadProgressBar {
+            width: 100%;
+            height: 6px;
+            background-color: #444;
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .uploadProgressBarInner {
+            height: 100%;
+            width: 0;
+            background-color: #00a4dc;
+        }
+    </style>
+
+    <script type="text/javascript">
+        (function () {
+            const pluginId = "b3ff3bcd-9b77-4a5e-9c22-3c5236757d12";
+            const chunkSizeBytes = 8 * 1024 * 1024;
+
+            function getPage() {
+                return document.querySelector(".uploadInboxPage");
+            }
+
+            function getQueueContainer() {
+                return document.querySelector(".uploadQueue");
+            }
+
+            function loadConfigAndTargets() {
+                ApiClient.getPluginConfiguration(pluginId).then(config => {
+                    config = config || {};
+                    const targets = config.Targets || [];
+                    const select = document.querySelector(".selectTarget");
+                    select.innerHTML = "";
+
+                    targets.forEach(t => {
+                        const opt = document.createElement("option");
+                        opt.value = t.Id;
+                        opt.textContent = t.DisplayName || t.BasePath || t.Id;
+                        select.appendChild(opt);
+                    });
+                });
+            }
+
+            function createUploadItem(file) {
+                const div = document.createElement("div");
+                div.className = "uploadItem";
+                div.innerHTML = `
+                    <div>${file.name} (${Math.round(file.size / (1024 * 1024))} MB)</div>
+                    <div class="uploadProgressBar"><div class="uploadProgressBarInner"></div></div>
+                    <div class="uploadStatus"></div>
+                `;
+                return div;
+            }
+
+            function setProgress(item, fraction) {
+                const bar = item.querySelector(".uploadProgressBarInner");
+                bar.style.width = (fraction * 100) + "%";
+            }
+
+            function setStatus(item, text) {
+                const status = item.querySelector(".uploadStatus");
+                status.textContent = text;
+            }
+
+            function handleFiles(files) {
+                const queue = getQueueContainer();
+                const targetId = document.querySelector(".selectTarget").value;
+                if (!targetId) {
+                    alert("Please select a target first.");
+                    return;
+                }
+
+                Array.from(files).forEach(file => {
+                    const item = createUploadItem(file);
+                    queue.appendChild(item);
+                    uploadFile(targetId, file, item);
+                });
+            }
+
+            function createSession(targetId, file) {
+                const url = ApiClient.getUrl("uploadinbox/uploads");
+                return ApiClient.ajax({
+                    type: "POST",
+                    url: url,
+                    data: JSON.stringify({
+                        targetId: targetId,
+                        fileName: file.name,
+                        totalBytes: file.size,
+                        contentType: file.type || null
+                    }),
+                    contentType: "application/json"
+                });
+            }
+
+            function uploadChunk(uploadId, start, end, total, blob) {
+                const url = ApiClient.getUrl("uploadinbox/uploads/" + encodeURIComponent(uploadId));
+                const xhr = new XMLHttpRequest();
+                xhr.open("PATCH", url, true);
+                xhr.setRequestHeader("Content-Range", "bytes " + start + "-" + (end - 1) + "/" + total);
+
+                const token = ApiClient.accessToken && ApiClient.accessToken();
+                if (token) {
+                    xhr.setRequestHeader("Authorization", 'MediaBrowser Token="' + token + '"');
+                }
+
+                return new Promise((resolve, reject) => {
+                    xhr.onload = function () {
+                        if (xhr.status >= 200 && xhr.status < 300) {
+                            try {
+                                resolve(JSON.parse(xhr.responseText || "{}"));
+                            } catch {
+                                resolve({});
+                            }
+                        } else {
+                            reject(xhr);
+                        }
+                    };
+                    xhr.onerror = function () {
+                        reject(xhr);
+                    };
+                    xhr.send(blob);
+                });
+            }
+
+            function finalizeUpload(uploadId) {
+                const url = ApiClient.getUrl("uploadinbox/uploads/" + encodeURIComponent(uploadId) + "/finalise");
+                return ApiClient.ajax({
+                    type: "POST",
+                    url: url
+                });
+            }
+
+            async function uploadFile(targetId, file, item) {
+                try {
+                    setStatus(item, "Starting...");
+
+                    const session = await createSession(targetId, file);
+                    const uploadId = session.uploadId || session.UploadId || session.id;
+                    const chunkSize = session.chunkSize || chunkSizeBytes;
+                    const maxFileSizeBytes = session.maxFileSizeBytes;
+
+                    if (maxFileSizeBytes && file.size > maxFileSizeBytes) {
+                        setStatus(item, "File is larger than server limit.");
+                        return;
+                    }
+
+                    let offset = (session.receivedBytes || 0);
+                    const total = file.size;
+
+                    while (offset < total) {
+                        const next = Math.min(offset + chunkSize, total);
+                        const blob = file.slice(offset, next);
+                        await uploadChunk(uploadId, offset, next, total, blob);
+                        offset = next;
+                        setProgress(item, offset / total);
+                        setStatus(item, `Uploaded ${Math.round(offset / (1024 * 1024))} / ${Math.round(total / (1024 * 1024))} MB`);
+                    }
+
+                    await finalizeUpload(uploadId);
+                    setProgress(item, 1);
+                    setStatus(item, "Completed");
+                } catch (xhr) {
+                    let message = "Upload failed.";
+                    if (xhr && xhr.status === 403) {
+                        message = "You don't have permission to upload.";
+                    } else if (xhr && xhr.status === 413) {
+                        message = "File too large. The reverse proxy or server may limit request size. Check Jellyfin reverse proxy documentation.";
+                    } else if (xhr && xhr.status === 507) {
+                        message = "Server disk is full or quota exceeded.";
+                    }
+                    setStatus(item, message);
+                }
+            }
+
+            function wireDropZone() {
+                const zone = document.querySelector(".uploadDropZone");
+                zone.addEventListener("dragover", function (e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    zone.classList.add("dragover");
+                });
+                zone.addEventListener("dragleave", function (e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    zone.classList.remove("dragover");
+                });
+                zone.addEventListener("drop", function (e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    zone.classList.remove("dragover");
+                    const files = e.dataTransfer.files;
+                    if (files && files.length) {
+                        handleFiles(files);
+                    }
+                });
+            }
+
+            document.addEventListener("pageshow", function (e) {
+                const page = e.target;
+                if (page.classList.contains("uploadInboxPage")) {
+                    loadConfigAndTargets();
+                    wireDropZone();
+                }
+            });
+
+            document.addEventListener("change", function (e) {
+                if (e.target && e.target.id === "fileInput") {
+                    handleFiles(e.target.files);
+                }
+            });
+        })();
+    </script>
+</body>
+</html>
+
