@@ -4,5 +4,13 @@ obj/
 .idea/
 artifacts
 
+# Local Jellyfin dev environment (DO NOT COMMIT: contains credentials/db)
+dev/jf-config/
+dev/jf-cache/
+dev/inbox/
+
+# Optional local env
+dev/.env
+
 # OS cruft
 .DS_Store

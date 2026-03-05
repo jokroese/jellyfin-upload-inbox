@@ -1,0 +1,8 @@
+# Extra safety: ignore dev runtime state
+jf-config/
+jf-cache/
+inbox/
+.env
+
+# OS cruft
+.DS_Store

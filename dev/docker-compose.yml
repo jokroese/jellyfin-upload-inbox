@@ -1,0 +1,14 @@
+services:
+  jellyfin:
+    image: ${JELLYFIN_IMAGE:-jellyfin/jellyfin:latest}
+    container_name: jellyfin-uploadinbox-dev
+    ports:
+      - "${JELLYFIN_HTTP_PORT:-8096}:8096"
+    volumes:
+      # Persistent Jellyfin configuration and plugins in Docker live under /config  [oai_citation:8‡Jellyfin](https://jellyfin.org/docs/general/installation/container/?utm_source=chatgpt.com)
+      - ./jf-config:/config
+      - ./jf-cache:/cache
+
+      # Upload destination used by this plugin in local dev
+      - ./inbox:/inbox
+    restart: unless-stopped
