@@ -5,6 +5,26 @@
     <title>Upload Inbox Configuration</title>
 </head>
 <body>
+    <style>
+        .uploadInboxConfigPage .uploadTargetRow {
+            padding: 0.75em 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        @media (min-width: 900px) {
+            .uploadInboxConfigPage .uploadTargetFields {
+                display: grid;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 0.75em 1.25em;
+                align-items: start;
+            }
+
+            .uploadInboxConfigPage .uploadTargetActions {
+                margin-top: 0.5em;
+            }
+        }
+    </style>
+
     <div id="UploadInboxConfigPage"
          data-role="page"
          class="page type-interior pluginConfigurationPage uploadInboxConfigPage"

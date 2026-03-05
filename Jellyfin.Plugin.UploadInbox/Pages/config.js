@@ -62,36 +62,75 @@
         return btn;
     }
 
+    function createFieldContainer(parent) {
+        const c = document.createElement('div');
+        c.className = 'inputContainer';
+        parent.appendChild(c);
+        return c;
+    }
+
     function createTargetRow(target, index) {
-        const div = document.createElement('div');
-        div.className = 'inputContainer';
+        const row = document.createElement('div');
+        row.className = 'uploadTargetRow';
 
-        appendLabel(div, 'Display name');
-        appendTextInput(div, 'txtDisplayName', target.DisplayName);
+        const fields = document.createElement('div');
+        fields.className = 'uploadTargetFields';
+        row.appendChild(fields);
 
-        appendLabel(div, 'Base path (on server)');
-        appendTextInput(div, 'txtBasePath', target.BasePath);
+        // Display name
+        {
+            const c = createFieldContainer(fields);
+            appendLabel(c, 'Display name');
+            appendTextInput(c, 'txtDisplayName', target.DisplayName);
+        }
 
-        appendLabel(div, 'Create per-user subfolder');
-        appendCheckbox(div, 'chkUserSubfolder', target.CreateUserSubfolder);
+        // Base path
+        {
+            const c = createFieldContainer(fields);
+            appendLabel(c, 'Base path (on server)');
+            appendTextInput(c, 'txtBasePath', target.BasePath);
+        }
 
-        const defaultMaxBytes = 20 * 1024 * 1024 * 1024;
-        const maxBytes = target.MaxFileSizeBytes || defaultMaxBytes;
-        const maxGb = Math.round(maxBytes / (1024 * 1024 * 1024));
-        appendLabel(div, 'Max file size (GB)');
-        appendNumberInput(div, 'txtMaxSize', maxGb, 1);
+        // Create per-user subfolder
+        {
+            const c = createFieldContainer(fields);
+            appendLabel(c, 'Create per-user subfolder');
+            appendCheckbox(c, 'chkUserSubfolder', target.CreateUserSubfolder);
+        }
 
-        appendLabel(div, 'Allowed extensions (comma separated, empty = all)');
-        appendTextInput(div, 'txtExtensions', (target.AllowedExtensions || []).join(', '));
+        // Max size
+        {
+            const c = createFieldContainer(fields);
+            const defaultMaxBytes = 20 * 1024 * 1024 * 1024;
+            const maxBytes = target.MaxFileSizeBytes || defaultMaxBytes;
+            const maxGb = Math.round(maxBytes / (1024 * 1024 * 1024));
+            appendLabel(c, 'Max file size (GB)');
+            appendNumberInput(c, 'txtMaxSize', maxGb, 1);
+        }
 
-        appendLabel(div, 'Admin-only: Allowed user IDs (comma separated GUIDs)');
-        appendTextInput(div, 'txtUsers', (target.AllowedUserIds || []).join(', '));
+        // Allowed extensions
+        {
+            const c = createFieldContainer(fields);
+            appendLabel(c, 'Allowed extensions (comma separated, empty = all)');
+            appendTextInput(c, 'txtExtensions', (target.AllowedExtensions || []).join(', '));
+        }
 
-        const del = appendButton(div, 'raised button-deleteTarget', 'Delete target');
+        // Allowed users
+        {
+            const c = createFieldContainer(fields);
+            appendLabel(c, 'Admin-only: Allowed user IDs (comma separated GUIDs)');
+            appendTextInput(c, 'txtUsers', (target.AllowedUserIds || []).join(', '));
+        }
+
+        // Actions
+        const actions = document.createElement('div');
+        actions.className = 'uploadTargetActions';
+        row.appendChild(actions);
+
+        const del = appendButton(actions, 'raised button-deleteTarget', 'Delete target');
         del.setAttribute('data-index', String(index));
 
-        div.appendChild(document.createElement('hr'));
-        return div;
+        return row;
     }
 
     function loadConfiguration(page, config) {
@@ -107,7 +146,7 @@
     function readConfigurationFromPage(page, config) {
         const targets = [];
         const container = getTargetsContainer(page);
-        const rows = container.querySelectorAll('.inputContainer');
+        const rows = container.querySelectorAll('.uploadTargetRow');
 
         rows.forEach((row, index) => {
             const id = (config.Targets && config.Targets[index] && config.Targets[index].Id) || null;
