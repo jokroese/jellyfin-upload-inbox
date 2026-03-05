@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using MediaBrowser.Common.Configuration;
 using MediaBrowser.Common.Plugins;
 using MediaBrowser.Model.Plugins;
@@ -49,6 +50,16 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
                 EmbeddedResourcePath = string.Format(
                     CultureInfo.InvariantCulture,
                     "{0}.Pages.config.html",
+                    ns),
+            },
+            // Controller script referenced by config.html via data-controller="__plugin/UploadInbox/config.js"
+            // Jellyfin will request: /web/configurationpage?name=UploadInbox/config.js
+            new PluginPageInfo
+            {
+                Name = "UploadInbox/config.js",
+                EmbeddedResourcePath = string.Format(
+                    CultureInfo.InvariantCulture,
+                    "{0}.Pages.config.js",
                     ns),
             },
             new PluginPageInfo

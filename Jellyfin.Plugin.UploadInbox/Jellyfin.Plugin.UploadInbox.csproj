@@ -21,6 +21,7 @@
 
   <ItemGroup>
     <EmbeddedResource Include="Pages\config.html" />
+    <EmbeddedResource Include="Pages\config.js" />
     <EmbeddedResource Include="Pages\upload.html" />
   </ItemGroup>
 
