@@ -41,9 +41,28 @@
         item.querySelector('.uploadStatus').textContent = text;
     }
 
-    function createSession(targetId, file) {
+    function normaliseAjaxJsonResponse(resp) {
+        // Jellyfin ApiClient.ajax can return:
+        //  - an object (already parsed JSON)
+        //  - a JSON string
+        //  - an XHR-ish object with responseText
+        if (resp == null) return null;
+
+        if (typeof resp === 'string') {
+            try { return JSON.parse(resp); } catch (_) { return null; }
+        }
+
+        if (resp.responseText && typeof resp.responseText === 'string') {
+            try { return JSON.parse(resp.responseText); } catch (_) { return null; }
+        }
+
+        return resp;
+    }
+
+    async function createSession(targetId, file) {
         var url = ApiClient.getUrl('uploadinbox/uploads');
-        return ApiClient.ajax({
+
+        var raw = await ApiClient.ajax({
             type: 'POST',
             url: url,
             data: JSON.stringify({
@@ -52,8 +71,27 @@
                 totalBytes: file.size,
                 contentType: file.type || null
             }),
-            contentType: 'application/json'
+            contentType: 'application/json',
+            dataType: 'json' // best-effort hint
         });
+
+        var session = normaliseAjaxJsonResponse(raw);
+
+        // Accept both casings, since server/client combos differ.
+        var uploadId = session && (session.uploadId || session.UploadId || session.id);
+        if (!uploadId) {
+            // Make this loud in the UI + console so we don't silently proceed to /undefined
+            console.error('Create session returned unexpected payload:', raw);
+            throw new Error('Create upload session did not return uploadId');
+        }
+
+        // Return a normalised object so the rest of the code is stable
+        return {
+            uploadId: uploadId,
+            chunkSize: session.chunkSize || session.ChunkSize,
+            maxFileSizeBytes: session.maxFileSizeBytes || session.MaxFileSizeBytes,
+            receivedBytes: session.receivedBytes || session.ReceivedBytes || 0
+        };
     }
 
     function uploadChunk(uploadId, start, end, total, blob) {
@@ -92,7 +130,7 @@
             setStatus(item, 'Starting...');
 
             var session = await createSession(targetId, file);
-            var uploadId = session.uploadId || session.UploadId || session.id;
+            var uploadId = session.uploadId;
             var chunkSize = session.chunkSize || chunkSizeBytes;
             var maxFileSizeBytes = session.maxFileSizeBytes;
 
@@ -115,13 +153,15 @@
             await finaliseUpload(uploadId);
             setProgress(item, 1);
             setStatus(item, 'Completed');
-        } catch (xhr) {
+        } catch (err) {
             var message = 'Upload failed.';
-            if (xhr && xhr.status === 403) {
+            if (err && err.message) {
+                message = err.message;
+            } else if (err && err.status === 403) {
                 message = "You don't have permission to upload.";
-            } else if (xhr && xhr.status === 413) {
+            } else if (err && err.status === 413) {
                 message = 'File too large. The reverse proxy or server may limit request size.';
-            } else if (xhr && xhr.status === 507) {
+            } else if (err && err.status === 507) {
                 message = 'Server disk is full or quota exceeded.';
             }
             setStatus(item, message);
