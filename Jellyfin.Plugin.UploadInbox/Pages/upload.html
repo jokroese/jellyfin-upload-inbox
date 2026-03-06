@@ -5,9 +5,11 @@
     <title>Upload Inbox</title>
 </head>
 <body>
-    <div id="UploadInboxPage" data-role="page" class="type-interior uploadInboxPage"
+    <div id="UploadInboxPage"
+         data-role="page"
+         class="page type-interior uploadInboxPage"
          data-controller="__plugin/UploadInbox/upload.js"
-         data-require="emby-select,emby-button">
+         data-require="emby-input,emby-select,emby-button">
         <div data-role="content">
             <div class="content-primary">
                 <h1>Upload Inbox</h1>
@@ -20,7 +22,7 @@
 
                 <div class="inputContainer">
                     <label>Files</label>
-                    <input type="file" id="fileInput" multiple />
+                    <input is="emby-input" type="file" id="fileInput" multiple />
                 </div>
 
                 <div class="uploadDropZone">

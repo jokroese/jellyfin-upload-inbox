@@ -199,4 +199,19 @@
             destroy(page);
         }
     });
+
+    // Fallback for cases where Jellyfin uses page events instead of view events.
+    document.addEventListener('pageshow', function (e) {
+        var page = e && e.target ? e.target : null;
+        if (page && page.id === 'UploadInboxPage') {
+            init(page);
+        }
+    });
+
+    document.addEventListener('pagehide', function (e) {
+        var page = e && e.target ? e.target : null;
+        if (page && page.id === 'UploadInboxPage') {
+            destroy(page);
+        }
+    });
 })();
