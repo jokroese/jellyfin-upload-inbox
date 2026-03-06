@@ -10,7 +10,7 @@ namespace Jellyfin.Plugin.UploadInbox.IntegrationTests;
 /// </summary>
 public sealed class JellyfinFixture : IAsyncLifetime
 {
-    private const string JellyfinImage = "jellyfin/jellyfin:latest";
+    private const string JellyfinImage = "jellyfin/jellyfin:10.11.6";
     private const int JellyfinPort = 8096;
 
     // Credentials generated fresh for each test run.

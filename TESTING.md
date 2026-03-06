@@ -35,7 +35,7 @@ dotnet test Jellyfin.Plugin.UploadInbox.IntegrationTests/Jellyfin.Plugin.UploadI
    - `jf-config-<guid>/` — Jellyfin's `/config` volume (plugin is copied here)
    - `jf-inbox-<guid>/` — mounted as `/inbox` inside the container
 2. Publishes plugin files into `jf-config-<guid>/plugins/UploadInbox/`
-3. Starts `jellyfin/jellyfin:latest` in Docker with those mounts, exposing port 8096 on a random host port
+3. Starts a pinned Jellyfin image (e.g. `jellyfin/jellyfin:10.11.6`) in Docker with those mounts, exposing port 8096 on a random host port
 4. Polls `GET /System/Info/Public` until Jellyfin is ready (up to 3 minutes)
 5. Completes the Jellyfin startup wizard headlessly via the `/Startup/*` API endpoints
 6. Authenticates as the generated admin user to obtain an access token
