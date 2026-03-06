@@ -23,6 +23,7 @@
     <EmbeddedResource Include="Pages\config.html" />
     <EmbeddedResource Include="Pages\config.js" />
     <EmbeddedResource Include="Pages\upload.html" />
+    <EmbeddedResource Include="Pages\upload.js" />
   </ItemGroup>
 
 </Project>

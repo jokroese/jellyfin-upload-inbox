@@ -62,6 +62,16 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
                     "{0}.Pages.config.js",
                     ns),
             },
+            // Controller script referenced by upload.html via data-controller="__plugin/UploadInbox/upload.js"
+            // Jellyfin will request: /web/configurationpage?name=UploadInbox/upload.js
+            new PluginPageInfo
+            {
+                Name = "UploadInbox/upload.js",
+                EmbeddedResourcePath = string.Format(
+                    CultureInfo.InvariantCulture,
+                    "{0}.Pages.upload.js",
+                    ns),
+            },
             new PluginPageInfo
             {
                 Name = "UploadInbox",
@@ -69,6 +79,10 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
                     CultureInfo.InvariantCulture,
                     "{0}.Pages.upload.html",
                     ns),
+                EnableInMainMenu = true,
+                DisplayName = "Upload Inbox",
+                MenuSection = "server",
+                MenuIcon = "upload",
             },
         };
     }

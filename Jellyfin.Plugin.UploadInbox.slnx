@@ -1,3 +1,5 @@
 <Solution>
   <Project Path="Jellyfin.Plugin.UploadInbox/Jellyfin.Plugin.UploadInbox.csproj" />
+  <Project Path="Jellyfin.Plugin.UploadInbox.Tests/Jellyfin.Plugin.UploadInbox.Tests.csproj" />
+  <Project Path="Jellyfin.Plugin.UploadInbox.IntegrationTests/Jellyfin.Plugin.UploadInbox.IntegrationTests.csproj" />
 </Solution>

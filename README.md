@@ -1,6 +1,8 @@
 # Jellyfin Upload Inbox
 
-Upload files to a configured "inbox" folder on your Jellyfin server.
+A Jellyfin plugin that lets authenticated users upload files directly to a configured "inbox"
+folder on the server — no SSH, no shared drives. Uploads are chunked (resumable) and authorised
+per-user via the plugin configuration page.
 
 ## Repository layout
 
@@ -44,6 +46,19 @@ In Jellyfin:
 - Add at least one target:
     - **Base path (on server)**: `/inbox` (mounted from `dev/inbox`)
     - **Allowed user IDs**: include your current user ID
+
+## Testing
+
+```bash
+# Unit tests (no Docker)
+dotnet test Jellyfin.Plugin.UploadInbox.Tests/Jellyfin.Plugin.UploadInbox.Tests.csproj
+
+# Integration tests (requires Docker)
+dotnet publish Jellyfin.Plugin.UploadInbox/Jellyfin.Plugin.UploadInbox.csproj -c Release
+dotnet test Jellyfin.Plugin.UploadInbox.IntegrationTests/Jellyfin.Plugin.UploadInbox.IntegrationTests.csproj
+```
+
+See [TESTING.md](TESTING.md) for details on how the integration tests work and common failures.
 
 ## More detailed dev environment notes
 
