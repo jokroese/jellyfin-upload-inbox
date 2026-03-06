@@ -1,13 +1,11 @@
-# Upload Inbox – local Jellyfin dev environment
+# Local Jellyfin dev environment
 
-This folder provides a fast local test loop for the plugin using Docker Compose.
+This folder provides a local Jellyfin instance (Docker Compose) so you can iterate on the plugin without touching a real server.
 
-## Why this exists
+## What this does
 
-Jellyfin-in-Docker persists configuration (and plugins) under `/config`.  [oai_citation:4‡Jellyfin](https://jellyfin.org/docs/general/installation/container/?utm_source=chatgpt.com)
-Manual plugin installs for Docker go under `/config/plugins/<PluginName>/...` and require a restart.  [oai_citation:5‡Demon Warrior Tech Docs](https://docs.demonwarriortech.com/Jellyfin%20Extras/Jellyfin-Plugins/?utm_source=chatgpt.com)
-
-This dev compose mirrors that so we can test changes without touching the deployed instance.
+Jellyfin stores configuration (including manually-installed plugins) under `/config` in the container.
+This Compose setup mounts `./jf-config` as `/config` so plugin installs persist across restarts.
 
 ---
 
@@ -50,15 +48,10 @@ Publish output will be in:
 
 ## 3) Install the plugin into local Jellyfin
 
-Manual install path in Docker is under the persisted `/config` mount:
-
-`dev/jf-config/plugins/UploadInbox/`
-
-Copy the published output:
+Use the helper script (recommended):
 
 ```bash
-mkdir -p dev/jf-config/plugins/UploadInbox
-cp -R Jellyfin.Plugin.UploadInbox/bin/Release/net9.0/publish/* dev/jf-config/plugins/UploadInbox/
+./dev/scripts/install-plugin.sh
 ```
 
 Restart Jellyfin to load it:
@@ -67,8 +60,7 @@ Restart Jellyfin to load it:
 docker compose -f dev/docker-compose.yml restart jellyfin
 ```
 
-Jellyfin should now show the plugin under:
-Dashboard → Plugins.  [oai_citation:6‡Demon Warrior Tech Docs](https://docs.demonwarriortech.com/Jellyfin%20Extras/Jellyfin-Plugins/?utm_source=chatgpt.com)
+Jellyfin should now show the plugin under: Dashboard → Plugins.
 
 ---
 
@@ -95,10 +87,18 @@ In Jellyfin: Dashboard → Users → click your user → the URL contains the us
 
 ---
 
-## 6) If uploads fail behind a reverse proxy
+## 6) Troubleshooting
 
-Reverse proxies often reject large request bodies (413) unless configured.
-For Nginx, see Jellyfin’s reverse proxy docs.  [oai_citation:7‡Jellyfin](https://jellyfin.org/docs/general/post-install/networking/reverse-proxy/nginx/?utm_source=chatgpt.com)
+### Plugin changes don’t appear
+
+- Ensure you ran `dotnet publish ... -c Release`
+- Run `./dev/scripts/install-plugin.sh`
+- Restart Jellyfin: `cd dev && docker compose restart jellyfin`
+
+### Uploads fail with 413
+
+Reverse proxies often reject large request bodies unless configured to allow them.
+If you are testing behind a reverse proxy, increase its request body limit.
 
 ---
 
