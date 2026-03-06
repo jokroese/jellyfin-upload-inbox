@@ -5,7 +5,7 @@
     <title>Upload Inbox</title>
 </head>
 <body>
-    <div data-role="page" class="type-interior uploadInboxPage" data-require="emby-input,emby-button">
+    <div id="UploadInboxPage" data-role="page" class="type-interior uploadInboxPage" data-require="emby-input,emby-button">
         <div data-role="content">
             <div class="content-primary">
                 <h1>Upload Inbox</h1>
@@ -246,7 +246,7 @@
                 });
             }
 
-            document.addEventListener("pageshow", function (e) {
+            document.addEventListener("viewshow", function (e) {
                 const page = e.target;
                 if (page.classList.contains("uploadInboxPage")) {
                     loadConfigAndTargets();
