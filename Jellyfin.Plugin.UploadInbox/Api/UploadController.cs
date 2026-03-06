@@ -10,6 +10,7 @@ using Jellyfin.Plugin.UploadInbox.Extensions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 
 namespace Jellyfin.Plugin.UploadInbox.Api;
 
@@ -26,11 +27,16 @@ public class UploadController : ControllerBase
 
     private readonly UploadAuthoriser _uploadAuthoriser;
     private readonly UploadSessionStore _sessionStore;
+    private readonly ILogger<UploadController> _logger;
 
-    public UploadController(UploadAuthoriser uploadAuthoriser, UploadSessionStore sessionStore)
+    public UploadController(
+        UploadAuthoriser uploadAuthoriser,
+        UploadSessionStore sessionStore,
+        ILogger<UploadController> logger)
     {
         _uploadAuthoriser = uploadAuthoriser;
         _sessionStore = sessionStore;
+        _logger = logger;
     }
 
     /// <summary>
@@ -143,27 +149,43 @@ public class UploadController : ControllerBase
 
         if (!Request.Headers.TryGetValue("Content-Range", out var contentRangeValues))
         {
+            _logger.LogWarning(
+                "UploadChunk 400: Missing Content-Range. ContentLength={ContentLength}",
+                Request.ContentLength);
             return BadRequest("Missing Content-Range header.");
         }
 
         if (!TryParseContentRange(contentRangeValues.ToString(), out var start, out var endInclusive, out var total))
         {
+            _logger.LogWarning(
+                "UploadChunk 400: Invalid Content-Range. Raw={Raw}, ContentLength={ContentLength}",
+                contentRangeValues.ToString(),
+                Request.ContentLength);
             return BadRequest("Invalid Content-Range header.");
         }
 
         if (total != session.TotalBytes)
         {
+            _logger.LogWarning(
+                "UploadChunk 400: Total size mismatch. start={Start} end={End} total={Total} sessionTotal={SessionTotal} ContentLength={ContentLength}",
+                start, endInclusive, total, session.TotalBytes, Request.ContentLength);
             return BadRequest("Total size does not match session.");
         }
 
         if (start != session.ReceivedBytes)
         {
+            _logger.LogWarning(
+                "UploadChunk 400: Chunk start mismatch. start={Start} expectedReceived={Expected} total={Total} ContentLength={ContentLength}",
+                start, session.ReceivedBytes, total, Request.ContentLength);
             return BadRequest("Chunk start does not match expected offset.");
         }
 
         var bytesToWrite = endInclusive - start + 1;
         if (bytesToWrite <= 0)
         {
+            _logger.LogWarning(
+                "UploadChunk 400: Invalid chunk size. start={Start} end={End} bytesToWrite={BytesToWrite} ContentLength={ContentLength}",
+                start, endInclusive, bytesToWrite, Request.ContentLength);
             return BadRequest("Invalid chunk size.");
         }
 
@@ -188,6 +210,9 @@ public class UploadController : ControllerBase
 
                 if (Request.ContentLength is long contentLength && contentLength != bytesToWrite)
                 {
+                    _logger.LogWarning(
+                        "UploadChunk 400: Content-Length mismatch. bytesToWrite={BytesToWrite} ContentLength={ContentLength} start={Start} end={End} total={Total}",
+                        bytesToWrite, contentLength, start, endInclusive, total);
                     return BadRequest("Content-Length does not match Content-Range.");
                 }
 
@@ -200,6 +225,9 @@ public class UploadController : ControllerBase
                     var read = await Request.Body.ReadAsync(buffer.AsMemory(0, toRead), cancellationToken).ConfigureAwait(false);
                     if (read == 0)
                     {
+                        _logger.LogWarning(
+                            "UploadChunk 400: Unexpected end of body. remaining={Remaining} bytesToWrite={BytesToWrite} ContentLength={ContentLength}",
+                            remaining, bytesToWrite, Request.ContentLength);
                         return BadRequest("Unexpected end of request body.");
                     }
 

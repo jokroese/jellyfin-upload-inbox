@@ -1,3 +1,4 @@
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
@@ -33,20 +34,27 @@ public sealed class JellyfinClient : IDisposable
 
     public async Task CompleteStartupWizardAsync(string username, string password)
     {
-        await SendVoidAsync(HttpMethod.Post, "/Startup/Configuration", new
+        // 1) Startup configuration
+        await SendVoidWithDiagnosticsAsync(HttpMethod.Post, "/Startup/Configuration", new
         {
             UICulture = "en-US",
             MetadataCountryCode = "US",
             PreferredMetadataLanguage = "en",
-        });
+        }, "Startup/Configuration");
 
-        await SendVoidAsync(HttpMethod.Post, "/Startup/User", new
+        // 2) PRIME the user manager (important on 10.11.x)
+        // This endpoint calls _userManager.InitializeAsync() internally.
+        await SendVoidWithDiagnosticsAsync(HttpMethod.Get, "/Startup/User", null, "Startup/User (prime)");
+
+        // 3) Now update the first user
+        await SendVoidWithDiagnosticsAsync(HttpMethod.Post, "/Startup/User", new
         {
             Name = username,
             Password = password,
-        });
+        }, "Startup/User");
 
-        await SendVoidWithDiagnosticsAsync(HttpMethod.Post, "/Startup/Complete", null, "Startup/Complete");
+        // 4) Complete wizard
+        await SendVoidWithDiagnosticsAsync(HttpMethod.Post, "/Startup/Complete", new { }, "Startup/Complete");
     }
 
     // ── Authentication ────────────────────────────────────────────────────────
@@ -115,12 +123,19 @@ public sealed class JellyfinClient : IDisposable
             $"/uploadinbox/uploads/{Uri.EscapeDataString(uploadId)}");
 
         AddAuthHeader(req);
-        req.Headers.TryAddWithoutValidation(
-            "Content-Range", $"bytes {start}-{endInclusive}/{total}");
+
+        // Content + headers (Content-Range is a content header in HttpClient)
         req.Content = new ByteArrayContent(data);
+        req.Content.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
+        req.Content.Headers.ContentRange = new ContentRangeHeaderValue(start, endInclusive, total);
 
         using var resp = await _http.SendAsync(req);
-        resp.EnsureSuccessStatusCode();
+        if (!resp.IsSuccessStatusCode)
+        {
+            var body = await resp.Content.ReadAsStringAsync();
+            throw new HttpRequestException(
+                $"UploadChunk failed: {(int)resp.StatusCode} {resp.ReasonPhrase}. Body: {body}");
+        }
     }
 
     public Task<FinaliseResult> FinaliseAsync(string uploadId)
