@@ -1,3 +1,4 @@
+using System.Net;
 using Xunit;
 
 namespace Jellyfin.Plugin.UploadInbox.IntegrationTests;
@@ -99,7 +100,7 @@ public sealed class UploadEndToEndTest : IClassFixture<JellyfinFixture>
         // Use a chunk size smaller than the default so we exercise the loop.
         const int chunkSize = 10;
         var content = System.Text.Encoding.UTF8.GetBytes("AAAAAAAAAA" + "BBBBBBBBBB" + "CCCCCCCCCC"); // 30 bytes
-        var fileName = $"multi-{Guid.NewGuid():N}.bin";
+        var fileName = $"multi-{Guid.NewGuid():N}.txt";
 
         var session = await _fx.Client.CreateUploadSessionAsync(targetId, fileName, content.Length);
 
@@ -123,5 +124,36 @@ public sealed class UploadEndToEndTest : IClassFixture<JellyfinFixture>
 
         var stored = await File.ReadAllBytesAsync(storedPath);
         Assert.Equal(content, stored);
+    }
+
+    [Fact(Timeout = 300_000)]
+    public async Task Upload_ForbiddenWhenUserNotAllowed_Returns403()
+    {
+        // Configure target with empty AllowedUserIds so the authenticated admin is not allowed.
+        var targetId = Guid.NewGuid().ToString("N");
+
+        await _fx.Client.UpdatePluginConfigurationAsync(PluginId, new
+        {
+            Targets = new[]
+            {
+                new
+                {
+                    Id = targetId,
+                    DisplayName = "Forbidden Inbox",
+                    BasePath = "/inbox",
+                    CreateUserSubfolder = false,
+                    MaxFileSizeBytes = 10 * 1024 * 1024L,
+                    AllowedExtensions = Array.Empty<string>(),
+                    AllowedUserIds = Array.Empty<string>(),
+                },
+            },
+        });
+
+        var content = System.Text.Encoding.UTF8.GetBytes("forbidden");
+        var fileName = $"forbidden-{Guid.NewGuid():N}.txt";
+
+        using var response = await _fx.Client.CreateUploadSessionResponseAsync(targetId, fileName, content.Length);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 }

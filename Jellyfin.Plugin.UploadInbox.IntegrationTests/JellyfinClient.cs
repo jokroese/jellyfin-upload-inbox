@@ -46,18 +46,18 @@ public sealed class JellyfinClient : IDisposable
             Password = password,
         });
 
-        await SendVoidAsync(HttpMethod.Post, "/Startup/Complete");
+        await SendVoidWithDiagnosticsAsync(HttpMethod.Post, "/Startup/Complete", null, "Startup/Complete");
     }
 
     // ── Authentication ────────────────────────────────────────────────────────
 
     public async Task AuthenticateAsync(string username, string password)
     {
-        var node = await SendAsync<JsonObject>(HttpMethod.Post, "/Users/AuthenticateByName", new
+        var (node, _) = await SendWithDiagnosticsAsync<JsonObject>(HttpMethod.Post, "/Users/AuthenticateByName", new
         {
             Username = username,
             Pw = password,
-        });
+        }, "Users/AuthenticateByName");
 
         _token = node["AccessToken"]?.GetValue<string>()
             ?? throw new InvalidOperationException("Auth response missing AccessToken.");
@@ -68,8 +68,17 @@ public sealed class JellyfinClient : IDisposable
 
     // ── Plugin configuration ──────────────────────────────────────────────────
 
-    public Task UpdatePluginConfigurationAsync(Guid pluginId, object config)
-        => SendVoidAsync(HttpMethod.Post, $"/Plugins/{pluginId}/Configuration", config);
+    public async Task UpdatePluginConfigurationAsync(Guid pluginId, object config)
+    {
+        try
+        {
+            await SendVoidAsync(HttpMethod.Post, $"/Plugins/{pluginId}/Configuration", config);
+        }
+        catch
+        {
+            await SendVoidAsync(HttpMethod.Put, $"/Plugins/{pluginId}/Configuration", config);
+        }
+    }
 
     // ── Upload API ────────────────────────────────────────────────────────────
 
@@ -82,6 +91,21 @@ public sealed class JellyfinClient : IDisposable
             totalBytes,
             contentType = (string?)null,
         });
+
+    /// <summary>Creates an upload session and returns the raw response (for asserting 403 etc.).</summary>
+    public async Task<HttpResponseMessage> CreateUploadSessionResponseAsync(
+        string targetId, string fileName, long totalBytes)
+    {
+        using var req = BuildRequest(HttpMethod.Post, "/uploadinbox/uploads", new
+        {
+            targetId,
+            fileName,
+            totalBytes,
+            contentType = (string?)null,
+        });
+        var resp = await _http.SendAsync(req);
+        return resp;
+    }
 
     public async Task UploadChunkAsync(
         string uploadId, long start, long endInclusive, long total, byte[] data)
@@ -121,6 +145,30 @@ public sealed class JellyfinClient : IDisposable
         using var req = BuildRequest(method, path, body);
         using var resp = await _http.SendAsync(req);
         resp.EnsureSuccessStatusCode();
+    }
+
+    private async Task SendVoidWithDiagnosticsAsync(HttpMethod method, string path, object? body, string label)
+    {
+        using var req = BuildRequest(method, path, body);
+        using var resp = await _http.SendAsync(req);
+        if (!resp.IsSuccessStatusCode)
+        {
+            var responseBody = await resp.Content.ReadAsStringAsync();
+            throw new HttpRequestException(
+                $"{label} returned {(int)resp.StatusCode}: {responseBody}");
+        }
+    }
+
+    private async Task<(T Value, string Raw)> SendWithDiagnosticsAsync<T>(HttpMethod method, string path, object? body, string label)
+    {
+        using var req = BuildRequest(method, path, body);
+        using var resp = await _http.SendAsync(req);
+        var raw = await resp.Content.ReadAsStringAsync();
+        if (!resp.IsSuccessStatusCode)
+            throw new HttpRequestException($"{label} returned {(int)resp.StatusCode}: {raw}");
+        var value = JsonSerializer.Deserialize<T>(raw, JsonOptions)
+            ?? throw new InvalidOperationException($"Null response from {path}");
+        return (value, raw);
     }
 
     private HttpRequestMessage BuildRequest(HttpMethod method, string path, object? body)

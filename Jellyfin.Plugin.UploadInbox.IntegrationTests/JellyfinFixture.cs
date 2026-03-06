@@ -39,7 +39,7 @@ public sealed class JellyfinFixture : IAsyncLifetime
             .WithBindMount(_configDir, "/config")
             .WithBindMount(InboxDir, "/inbox")
             .WithEnvironment("JELLYFIN_PublishedServerUrl", "http://localhost")
-            .WithWaitStrategy(Wait.ForUnixContainer().UntilPortIsAvailable(JellyfinPort))
+            .WithWaitStrategy(Wait.ForUnixContainer().UntilHttpRequestIsSucceeded(r => r.ForPort(JellyfinPort)))
             .Build();
 
         await _container.StartAsync();
@@ -165,7 +165,15 @@ public sealed class JellyfinFixture : IAsyncLifetime
     private static void TryDeleteDir(string? path)
     {
         if (string.IsNullOrEmpty(path)) return;
-        try { Directory.Delete(path, recursive: true); }
-        catch { /* best-effort */ }
+        try
+        {
+            Directory.Delete(path, recursive: true);
+        }
+        catch (Exception ex)
+        {
+            // Best-effort; write paths to test output for debugging.
+            Console.WriteLine($"Fixture cleanup: failed to delete temp dir: {path}");
+            Console.WriteLine($"  {ex.GetType().Name}: {ex.Message}");
+        }
     }
 }
