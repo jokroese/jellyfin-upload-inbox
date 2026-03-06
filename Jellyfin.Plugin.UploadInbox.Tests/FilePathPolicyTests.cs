@@ -49,8 +49,9 @@ public class FilePathPolicyTests
         var policy = new FilePathPolicy();
         var userId = Guid.NewGuid();
 
-        var result = policy.CreatePaths(target, userId, "..\\evil.mkv", "upload3");
-        Assert.StartsWith(Path.GetFullPath(baseDir), result.FinalFilePath, StringComparison.OrdinalIgnoreCase);
+        // The policy rejects traversal attempts rather than silently sanitizing them.
+        Assert.Throws<InvalidOperationException>(() =>
+            policy.CreatePaths(target, userId, "..\\evil.mkv", "upload3"));
     }
 
     [Fact]
