@@ -49,7 +49,11 @@ public sealed class JellyfinFixture : IAsyncLifetime
 
         Client = new JellyfinClient(baseUrl);
 
+        // Wait for basic HTTP (the server process is up)
         await WaitForHttpReadyAsync(baseUrl + "/System/Info/Public", TimeSpan.FromMinutes(3));
+
+        // Wait for the startup wizard controller specifically — it initialises later than /System/Info/Public
+        await WaitForHttpReadyAsync(baseUrl + "/Startup/Configuration", TimeSpan.FromMinutes(2));
 
         await Client.CompleteStartupWizardAsync(AdminUsername, _adminPassword);
 
