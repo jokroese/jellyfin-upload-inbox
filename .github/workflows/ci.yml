@@ -16,6 +16,14 @@ jobs:
         with:
           dotnet-version: '9.x'
 
+      - name: Cache NuGet
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-9-${{ hashFiles('**/*.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-9-
+
       - name: Restore
         run: dotnet restore
 
@@ -38,6 +46,14 @@ jobs:
         with:
           dotnet-version: '9.x'
 
+      - name: Cache NuGet
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-9-${{ hashFiles('**/*.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-9-
+
       - name: Restore
         run: dotnet restore
 
@@ -52,4 +68,4 @@ jobs:
           dotnet test
           Jellyfin.Plugin.UploadInbox.IntegrationTests/Jellyfin.Plugin.UploadInbox.IntegrationTests.csproj
           -c Release
-        timeout-minutes: 15
+        timeout-minutes: 20
