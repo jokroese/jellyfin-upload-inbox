@@ -1,0 +1,115 @@
+# Release on version tags (v*). Builds plugin, runs unit + integration tests,
+# creates GitHub Release with ZIP/checksums, then generates manifest.json and
+# publishes it to gh-pages for repository-based installs.
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    name: Build and release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # create release and upload assets
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get version from tag
+        id: version
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          VERSION="${TAG#v}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Version: $VERSION"
+
+      - name: Stamp build.yaml version
+        run: |
+          sed -i "s/^version: .*/version: \"${{ steps.version.outputs.version }}\"/" build.yaml
+          grep '^version:' build.yaml
+
+      - name: Install .NET 9 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.x'
+
+      - name: Cache NuGet
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-9-${{ hashFiles('**/*.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-9-
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build (Release)
+        run: >
+          dotnet build --no-restore -c Release
+          -p:Version=${{ steps.version.outputs.version }}
+          -p:AssemblyVersion=${{ steps.version.outputs.version }}
+          -p:FileVersion=${{ steps.version.outputs.version }}
+
+      - name: Run unit tests
+        run: >
+          dotnet test
+          Jellyfin.Plugin.UploadInbox.Tests/Jellyfin.Plugin.UploadInbox.Tests.csproj
+          --no-build -c Release
+
+      - name: Publish plugin
+        run: >
+          dotnet publish
+          Jellyfin.Plugin.UploadInbox/Jellyfin.Plugin.UploadInbox.csproj
+          -c Release --no-build
+          -p:Version=${{ steps.version.outputs.version }}
+          -p:AssemblyVersion=${{ steps.version.outputs.version }}
+          -p:FileVersion=${{ steps.version.outputs.version }}
+
+      - name: Run integration tests
+        run: >
+          dotnet test
+          Jellyfin.Plugin.UploadInbox.IntegrationTests/Jellyfin.Plugin.UploadInbox.IntegrationTests.csproj
+          -c Release
+        timeout-minutes: 20
+
+      - name: Package release ZIP and SHA-256
+        run: |
+          VERSION="${{ steps.version.outputs.version }}" ./scripts/package-release.sh
+          ls -la dist/
+
+      - name: Generate MD5 for repository manifest
+        run: |
+          cd dist
+          ZIP="UploadInbox_${{ steps.version.outputs.version }}.zip"
+          md5sum "$ZIP" | awk '{ print $1 }' > "${ZIP}.md5"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: Upload Inbox ${{ steps.version.outputs.version }}
+          draft: false
+          generate_release_notes: true
+          files: |
+            dist/UploadInbox_${{ steps.version.outputs.version }}.zip
+            dist/UploadInbox_${{ steps.version.outputs.version }}.zip.sha256
+            dist/UploadInbox_${{ steps.version.outputs.version }}.zip.md5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate manifest.json and publish to gh-pages
+        uses: Kevinjil/jellyfin-plugin-repo-action@v0.4.3
+        with:
+          githubToken: ${{ secrets.GITHUB_TOKEN }}
+          repository: ${{ github.repository }}
+          pagesBranch: gh-pages
+          pagesFile: manifest.json
+          ignorePrereleases: "true"
