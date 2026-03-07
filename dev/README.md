@@ -15,7 +15,7 @@ From repo root:
 
 ```bash
 cp dev/.env.example dev/.env
-mkdir -p dev/jf-config dev/jf-cache dev/inbox
+mkdir -p dev/jf-config dev/jf-cache dev/media
 ```
 
 Bring up local Jellyfin:
@@ -66,15 +66,17 @@ Jellyfin should now show the plugin under: Dashboard → Plugins.
 
 ## 4) Configure Upload Inbox
 
-1. Dashboard → Plugins → Upload Inbox (configuration page)
-2. Add one target:
-   - **Display name**: e.g. `Inbox`
-   - **Base path (on server)**: `/inbox` (this is mounted from `dev/inbox`)
-   - **Allowed user IDs**: add your current user Guid (see below)
+1. In Jellyfin, create a media library rooted at `/media`
+2. Dashboard → Plugins → Upload Inbox
+3. Add one target and select the `/media` library root
+4. Save
 
-### Find your user Guid
+Uploads now go directly into a configured Jellyfin library root rather than an arbitrary server folder.
 
-In Jellyfin: Dashboard → Users → click your user → the URL contains the user id.
+### Notes
+
+- In Docker, `/media` is the path visible inside the container.
+- On the host, files will appear in `dev/media/`.
 
 ---
 
@@ -83,7 +85,7 @@ In Jellyfin: Dashboard → Users → click your user → the URL contains the us
 1. Open the Upload Inbox page in Jellyfin (the plugin page).
 2. Select the target.
 3. Upload a small file (~1–10 MB).
-4. Confirm it appears on the host in `dev/inbox/` (or inside the container at `/inbox`).
+4. Confirm it appears on the host in `dev/media/` (or inside the container at `/media`).
 
 ---
 

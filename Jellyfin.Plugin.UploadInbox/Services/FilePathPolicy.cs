@@ -26,23 +26,18 @@ public class FilePathPolicy
         string originalFileName,
         string uploadId)
     {
-        if (string.IsNullOrWhiteSpace(target.BasePath))
+        if (string.IsNullOrWhiteSpace(target.LibraryPath))
         {
-            throw new InvalidOperationException("Target base path is not configured.");
+            throw new InvalidOperationException("Target library folder is not configured.");
         }
 
-        var basePathFull = Path.GetFullPath(target.BasePath);
+        var basePathFull = Path.GetFullPath(target.LibraryPath);
         if (!Path.IsPathRooted(basePathFull))
         {
-            throw new InvalidOperationException("Target base path must be absolute.");
+            throw new InvalidOperationException("Target library folder must be absolute.");
         }
 
         var targetDirectory = basePathFull;
-        if (target.CreateUserSubfolder)
-        {
-            targetDirectory = Path.Combine(targetDirectory, userId.ToString("N", System.Globalization.CultureInfo.InvariantCulture));
-        }
-
         Directory.CreateDirectory(targetDirectory);
 
         var sanitizedName = SanitizeFileName(originalFileName);

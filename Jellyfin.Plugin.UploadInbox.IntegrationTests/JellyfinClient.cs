@@ -88,6 +88,21 @@ public sealed class JellyfinClient : IDisposable
         }
     }
 
+    public async Task CreateLibraryAsync(string name, string collectionType, string path)
+    {
+        var url =
+            "/Library/VirtualFolders" +
+            $"?name={Uri.EscapeDataString(name)}" +
+            $"&collectionType={Uri.EscapeDataString(collectionType)}" +
+            $"&paths={Uri.EscapeDataString(path)}" +
+            "&refreshLibrary=true";
+
+        await SendVoidAsync(HttpMethod.Post, url);
+    }
+
+    public Task<VirtualFolderInfoResult[]> GetVirtualFoldersAsync()
+        => SendAsync<VirtualFolderInfoResult[]>(HttpMethod.Get, "/Library/VirtualFolders");
+
     // ── Upload API ────────────────────────────────────────────────────────────
 
     public Task<CreateSessionResult> CreateUploadSessionAsync(
@@ -233,4 +248,14 @@ public sealed class FinaliseResult
 {
     [JsonPropertyName("storedFileName")]
     public string StoredFileName { get; init; } = string.Empty;
+}
+
+public sealed class VirtualFolderInfoResult
+{
+    [JsonPropertyName("name")]
+    public string Name { get; init; } = string.Empty;
+    [JsonPropertyName("itemId")]
+    public string ItemId { get; init; } = string.Empty;
+    [JsonPropertyName("locations")]
+    public string[] Locations { get; init; } = Array.Empty<string>();
 }

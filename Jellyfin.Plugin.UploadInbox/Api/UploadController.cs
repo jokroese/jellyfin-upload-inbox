@@ -26,15 +26,18 @@ public class UploadController : ControllerBase
     private const long MaxChunkSizeBytes = 64L * 1024 * 1024;
 
     private readonly UploadAuthoriser _uploadAuthoriser;
+    private readonly LibraryTargetResolver _libraryTargetResolver;
     private readonly UploadSessionStore _sessionStore;
     private readonly ILogger<UploadController> _logger;
 
     public UploadController(
         UploadAuthoriser uploadAuthoriser,
+        LibraryTargetResolver libraryTargetResolver,
         UploadSessionStore sessionStore,
         ILogger<UploadController> logger)
     {
         _uploadAuthoriser = uploadAuthoriser;
+        _libraryTargetResolver = libraryTargetResolver;
         _sessionStore = sessionStore;
         _logger = logger;
     }
@@ -82,6 +85,16 @@ public class UploadController : ControllerBase
             return Forbid();
         }
 
+        if (!_libraryTargetResolver.TryResolveTarget(target, out var resolvedLibraryRoot, out var libraryError) ||
+            resolvedLibraryRoot is null)
+        {
+            return BadRequest(libraryError ?? "The selected Jellyfin library folder is not available.");
+        }
+
+        target.LibraryId = resolvedLibraryRoot.LibraryId;
+        target.LibraryName = resolvedLibraryRoot.LibraryName;
+        target.LibraryPath = resolvedLibraryRoot.LibraryPath;
+
         var maxFileSize = target.MaxFileSizeBytes > 0
             ? target.MaxFileSizeBytes
             : long.MaxValue;
@@ -116,9 +129,18 @@ public class UploadController : ControllerBase
         {
             return BadRequest(ex.Message);
         }
-        catch (IOException ex)
+        catch (UnauthorizedAccessException)
         {
-            return StatusCode(StatusCodes.Status507InsufficientStorage, ex.Message);
+            return BadRequest("Jellyfin cannot write to the selected library folder. Check filesystem permissions for that library root.");
+        }
+        catch (DirectoryNotFoundException)
+        {
+            return BadRequest("The selected library folder does not exist on the server anymore.");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "CreateUpload failed for target {TargetId}", request.TargetId);
+            return StatusCode(StatusCodes.Status500InternalServerError, "Failed to create upload session.");
         }
     }
 

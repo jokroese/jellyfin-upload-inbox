@@ -17,7 +17,7 @@
             targets.forEach(function (t) {
                 var opt = document.createElement('option');
                 opt.value = t.Id;
-                opt.textContent = t.DisplayName || t.BasePath || t.Id;
+                opt.textContent = (t.LibraryName || 'Library') + ' — ' + (t.LibraryPath || t.Id);
                 select.appendChild(opt);
             });
         });

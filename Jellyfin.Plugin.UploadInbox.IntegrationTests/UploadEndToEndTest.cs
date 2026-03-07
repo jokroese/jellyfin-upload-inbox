@@ -21,7 +21,12 @@ public sealed class UploadEndToEndTest : IClassFixture<JellyfinFixture>
     [Fact(Timeout = 300_000)]
     public async Task Upload_SmallFile_AppearsInInbox()
     {
-        // ── Configure plugin with one target ─────────────────────────────────
+        // ── Create a Jellyfin library rooted at /media ───────────────────────
+        await _fx.Client.CreateLibraryAsync("Upload Library Small", "movies", "/media");
+        var library = (await _fx.Client.GetVirtualFoldersAsync())
+            .Single(x => x.Locations.Contains("/media", StringComparer.Ordinal));
+
+        // ── Configure plugin with one target bound to that library root ─────
         var targetId = Guid.NewGuid().ToString("N");
 
         await _fx.Client.UpdatePluginConfigurationAsync(PluginId, new
@@ -31,10 +36,10 @@ public sealed class UploadEndToEndTest : IClassFixture<JellyfinFixture>
                 new
                 {
                     Id = targetId,
-                    DisplayName = "Test Inbox",
-                    BasePath = "/inbox",
+                    LibraryId = library.ItemId,
+                    LibraryName = library.Name,
+                    LibraryPath = "/media",
                     AccessMode = "AllUsers",
-                    CreateUserSubfolder = false,
                     MaxFileSizeBytes = 10 * 1024 * 1024L,
                     AllowedExtensions = Array.Empty<string>(),
                 },
@@ -64,8 +69,8 @@ public sealed class UploadEndToEndTest : IClassFixture<JellyfinFixture>
 
         Assert.False(string.IsNullOrEmpty(result.StoredFileName));
 
-        // ── Assert file is on the host filesystem ─────────────────────────────
-        var storedPath = Path.Combine(_fx.InboxDir, result.StoredFileName);
+        // ── Assert file is on the host filesystem under the library root ─────
+        var storedPath = Path.Combine(_fx.MediaDir, result.StoredFileName);
         Assert.True(File.Exists(storedPath), $"Expected file at: {storedPath}");
 
         var stored = await File.ReadAllBytesAsync(storedPath);
@@ -75,7 +80,12 @@ public sealed class UploadEndToEndTest : IClassFixture<JellyfinFixture>
     [Fact(Timeout = 300_000)]
     public async Task Upload_MultiChunk_AppearsInInbox()
     {
-        // ── Configure plugin ──────────────────────────────────────────────────
+        // ── Create a Jellyfin library rooted at /media ───────────────────────
+        await _fx.Client.CreateLibraryAsync("Upload Library Multi", "movies", "/media");
+        var library = (await _fx.Client.GetVirtualFoldersAsync())
+            .Single(x => x.Locations.Contains("/media", StringComparer.Ordinal));
+
+        // ── Configure plugin using that library root ─────────────────────────
         var targetId = Guid.NewGuid().ToString("N");
 
         await _fx.Client.UpdatePluginConfigurationAsync(PluginId, new
@@ -85,10 +95,10 @@ public sealed class UploadEndToEndTest : IClassFixture<JellyfinFixture>
                 new
                 {
                     Id = targetId,
-                    DisplayName = "Test Inbox Multi",
-                    BasePath = "/inbox",
+                    LibraryId = library.ItemId,
+                    LibraryName = library.Name,
+                    LibraryPath = "/media",
                     AccessMode = "AllUsers",
-                    CreateUserSubfolder = false,
                     MaxFileSizeBytes = 10 * 1024 * 1024L,
                     AllowedExtensions = Array.Empty<string>(),
                 },
@@ -118,7 +128,7 @@ public sealed class UploadEndToEndTest : IClassFixture<JellyfinFixture>
 
         var result = await _fx.Client.FinaliseAsync(session.UploadId);
 
-        var storedPath = Path.Combine(_fx.InboxDir, result.StoredFileName);
+        var storedPath = Path.Combine(_fx.MediaDir, result.StoredFileName);
         Assert.True(File.Exists(storedPath), $"Expected file at: {storedPath}");
 
         var stored = await File.ReadAllBytesAsync(storedPath);
