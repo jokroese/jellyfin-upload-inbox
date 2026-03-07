@@ -5,6 +5,22 @@ using MediaBrowser.Model.Plugins;
 namespace Jellyfin.Plugin.UploadInbox.Configuration;
 
 /// <summary>
+/// Who is allowed to upload to a target.
+/// </summary>
+public enum UploadAccessMode
+{
+    /// <summary>
+    /// Any authenticated Jellyfin user may upload. (Default)
+    /// </summary>
+    AllUsers = 0,
+
+    /// <summary>
+    /// Only Jellyfin administrators may upload.
+    /// </summary>
+    AdminsOnly = 1,
+}
+
+/// <summary>
 /// Upload inbox configuration.
 /// </summary>
 public class PluginConfiguration : BasePluginConfiguration
@@ -44,6 +60,11 @@ public class UploadTarget
     public string BasePath { get; set; } = string.Empty;
 
     /// <summary>
+    /// Gets or sets who is allowed to upload to this target.
+    /// </summary>
+    public UploadAccessMode AccessMode { get; set; } = UploadAccessMode.AllUsers;
+
+    /// <summary>
     /// Gets or sets a value indicating whether a per-user subfolder is created.
     /// </summary>
     public bool CreateUserSubfolder { get; set; } = true;
@@ -57,10 +78,5 @@ public class UploadTarget
     /// Gets or sets the optional list of allowed file extensions (without dot). Empty means all extensions allowed.
     /// </summary>
     public List<string> AllowedExtensions { get; set; } = new List<string>();
-
-    /// <summary>
-    /// Gets or sets the list of allowed user ids.
-    /// </summary>
-    public List<Guid> AllowedUserIds { get; set; } = new List<Guid>();
 }
 

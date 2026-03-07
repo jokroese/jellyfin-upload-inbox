@@ -45,7 +45,7 @@ In Jellyfin:
 - Dashboard → Plugins → **Upload Inbox** → Settings
 - Add at least one target:
     - **Base path (on server)**: `/inbox` (mounted from `dev/inbox`)
-    - **Allowed user IDs**: include your current user ID
+    - **Who can upload**: default is **All users**
 
 ## Testing
 
