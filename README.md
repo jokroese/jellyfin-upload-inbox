@@ -2,7 +2,7 @@
 
 [![Releases](https://img.shields.io/github/v/release/jokroese/jellyfin-upload-inbox?include_prereleases=&sort=semver)](https://github.com/jokroese/jellyfin-upload-inbox/releases)
 
-Upload files directly to a configured server inbox from Jellyfin. Authenticated users get an **Upload Inbox** page; uploads are chunked (resumable), with per-target permissions, extension allowlists, and file size limits.
+Upload files directly into existing Jellyfin library root folders. Authenticated users get an **Upload Inbox** page; uploads are chunked (resumable), with per-target permissions, extension allowlists, and file size limits.
 
 ## Compatibility
 
@@ -46,14 +46,14 @@ Manual install is a fallback for offline or locked-down deployments, not the pri
 ## Notes for server admins
 
 - **Reverse proxy:** Uploads may fail unless body-size limits are raised (e.g. `client_max_body_size` in nginx).
-- **Filesystem:** Target base paths must be absolute and writable by the Jellyfin process.
+- **Libraries:** Upload targets now point only at existing Jellyfin library root folders.
 - **Docker:** Use paths visible inside the container (e.g. `/inbox`), not host-only paths.
 
 ---
 
 ## After installation
 
-- **Dashboard → Plugins → Upload Inbox → Settings** to add upload targets (base path, who can upload, extensions, max size).
+- **Dashboard → Plugins → Upload Inbox → Settings** to add upload targets by selecting an existing Jellyfin library root folder.
 - The **Upload Inbox** item appears in the main menu for allowed users.
 
 ---
@@ -69,7 +69,7 @@ Manual install is a fallback for offline or locked-down deployments, not the pri
 
 ```bash
 cp dev/.env.example dev/.env
-mkdir -p dev/jf-config dev/jf-cache dev/inbox
+mkdir -p dev/jf-config dev/jf-cache dev/media
 cd dev && docker compose --env-file .env up -d
 ```
 
@@ -81,7 +81,7 @@ dotnet publish Jellyfin.Plugin.UploadInbox/Jellyfin.Plugin.UploadInbox.csproj -c
 (cd dev && docker compose restart jellyfin)
 ```
 
-Configure at **Dashboard → Plugins → Upload Inbox → Settings** (e.g. base path `/inbox`).
+Create a library rooted at `/media`, then configure **Dashboard → Plugins → Upload Inbox → Settings** to use that library root.
 
 ### Testing
 

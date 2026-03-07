@@ -33,14 +33,15 @@ dotnet test Jellyfin.Plugin.UploadInbox.IntegrationTests/Jellyfin.Plugin.UploadI
 
 1. `JellyfinFixture` (`IAsyncLifetime`) creates two temporary directories on the host:
    - `jf-config-<guid>/` — Jellyfin's `/config` volume (plugin is copied here)
-   - `jf-inbox-<guid>/` — mounted as `/inbox` inside the container
+   - `jf-media-<guid>/` — mounted as `/media` inside the container
 2. Publishes plugin files into `jf-config-<guid>/plugins/UploadInbox/`
 3. Starts a pinned Jellyfin image (e.g. `jellyfin/jellyfin:10.11.6`) in Docker with those mounts, exposing port 8096 on a random host port
 4. Polls `GET /System/Info/Public` until Jellyfin is ready (up to 3 minutes)
 5. Completes the Jellyfin startup wizard headlessly via the `/Startup/*` API endpoints
 6. Authenticates as the generated admin user to obtain an access token
-7. Each test configures a plugin target via `POST /Plugins/{id}/Configuration`
-8. Creates an upload session, uploads chunk(s), finalises — then asserts the file exists in the host-side inbox dir
+7. Each test creates a Jellyfin library rooted at `/media` via `/Library/VirtualFolders`
+8. Each test configures a plugin target using that existing Jellyfin library root
+9. Creates an upload session, uploads chunk(s), finalises — then asserts the file exists in the host-side library dir
 
 ### Plugin publish directory
 

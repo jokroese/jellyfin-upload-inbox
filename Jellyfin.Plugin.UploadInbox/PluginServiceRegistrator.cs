@@ -15,6 +15,7 @@ public class PluginServiceRegistrator : IPluginServiceRegistrator
     {
         serviceCollection.AddSingleton<FilePathPolicy>();
         serviceCollection.AddSingleton<UploadAuthoriser>();
+        serviceCollection.AddSingleton<LibraryTargetResolver>();
         serviceCollection.AddSingleton<UploadSessionStore>();
     }
 }

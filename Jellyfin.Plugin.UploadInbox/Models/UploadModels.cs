@@ -87,3 +87,15 @@ public class UploadStatusResponse
     public long ReceivedBytes { get; set; }
 }
 
+/// <summary>
+/// A currently configured Jellyfin library root that can be used as an upload target.
+/// </summary>
+public class LibraryRootInfo
+{
+    public string LibraryId { get; set; } = string.Empty;
+
+    public string LibraryName { get; set; } = string.Empty;
+
+    public string LibraryPath { get; set; } = string.Empty;
+}
+

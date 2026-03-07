@@ -50,24 +50,24 @@ public class UploadTarget
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
 
     /// <summary>
-    /// Gets or sets a human readable display name.
+    /// Gets or sets the Jellyfin library id this target points at.
     /// </summary>
-    public string DisplayName { get; set; } = string.Empty;
+    public string LibraryId { get; set; } = string.Empty;
 
     /// <summary>
-    /// Gets or sets the absolute base path on the server.
+    /// Gets or sets the current Jellyfin library name for display.
     /// </summary>
-    public string BasePath { get; set; } = string.Empty;
+    public string LibraryName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the selected library root path.
+    /// </summary>
+    public string LibraryPath { get; set; } = string.Empty;
 
     /// <summary>
     /// Gets or sets who is allowed to upload to this target.
     /// </summary>
     public UploadAccessMode AccessMode { get; set; } = UploadAccessMode.AllUsers;
-
-    /// <summary>
-    /// Gets or sets a value indicating whether a per-user subfolder is created.
-    /// </summary>
-    public bool CreateUserSubfolder { get; set; } = true;
 
     /// <summary>
     /// Gets or sets the maximum allowed file size in bytes.

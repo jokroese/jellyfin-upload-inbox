@@ -7,6 +7,10 @@
     // Track per-page instance resources to avoid stale bindings across navigation.
     const pageState = new WeakMap(); // page -> { abort: AbortController }
 
+    function getLibraryRoots(page) {
+        return page.availableLibraryRoots || [];
+    }
+
     function getTargetsContainer(page) {
         return page.querySelector('.uploadTargetsContainer');
     }
@@ -62,6 +66,17 @@
         return btn;
     }
 
+    function appendText(container, text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        container.appendChild(div);
+        return div;
+    }
+
+    function encodeLibraryRoot(root) {
+        return JSON.stringify(root);
+    }
+
     function appendSelect(container, className, options, value) {
         const select = document.createElement('select');
         select.setAttribute('is', 'emby-select');
@@ -77,6 +92,29 @@
         return select;
     }
 
+    function createLibraryRootOptions(page) {
+        const roots = getLibraryRoots(page);
+        const options = roots.map(function (root) {
+            return {
+                value: encodeLibraryRoot(root),
+                text: (root.libraryName || 'Library') + ' — ' + root.libraryPath
+            };
+        });
+
+        if (!options.length) {
+            options.push({
+                value: '',
+                text: 'No Jellyfin library roots found'
+            });
+        }
+
+        return options;
+    }
+
+    function getTargetSelectionValue(target) {
+        return target.LibraryId && target.LibraryPath ? encodeLibraryRoot({ libraryId: target.LibraryId, libraryName: target.LibraryName || '', libraryPath: target.LibraryPath }) : '';
+    }
+
     function createFieldContainer(parent) {
         const c = document.createElement('div');
         c.className = 'inputContainer';
@@ -84,7 +122,7 @@
         return c;
     }
 
-    function createTargetRow(target, index) {
+    function createTargetRow(page, target, index) {
         const row = document.createElement('div');
         row.className = 'uploadTargetRow';
 
@@ -92,18 +130,11 @@
         fields.className = 'uploadTargetFields';
         row.appendChild(fields);
 
-        // Display name
+        // Library root
         {
             const c = createFieldContainer(fields);
-            appendLabel(c, 'Display name');
-            appendTextInput(c, 'txtDisplayName', target.DisplayName);
-        }
-
-        // Base path
-        {
-            const c = createFieldContainer(fields);
-            appendLabel(c, 'Base path (on server)');
-            appendTextInput(c, 'txtBasePath', target.BasePath);
+            appendLabel(c, 'Library folder');
+            appendSelect(c, 'selLibraryRoot', createLibraryRootOptions(page), getTargetSelectionValue(target));
         }
 
         // Who can upload?
@@ -116,13 +147,6 @@
                 { value: 'AllUsers', text: 'All users (default)' },
                 { value: 'AdminsOnly', text: 'Admins only' }
             ], mode);
-        }
-
-        // Create per-user subfolder
-        {
-            const c = createFieldContainer(fields);
-            appendLabel(c, 'Create per-user subfolder');
-            appendCheckbox(c, 'chkUserSubfolder', target.CreateUserSubfolder);
         }
 
         // Max size
@@ -159,16 +183,8 @@
 
         const targets = config.Targets || [];
         targets.forEach((t, i) => {
-            container.appendChild(createTargetRow(t, i));
+            container.appendChild(createTargetRow(page, t, i));
         });
-    }
-
-    function isAbsolutePath(path) {
-        const s = (path || '').trim();
-        if (s.length === 0) return false;
-        if (s.startsWith('/')) return true;
-        if (/^[A-Za-z]:[/\\]/.test(s)) return true;
-        return false;
     }
 
     function validateExtensionEntry(ext) {
@@ -186,13 +202,20 @@
         const errors = [];
 
         rows.forEach((row, index) => {
-            const basePath = (row.querySelector('.txtBasePath').value || '').trim();
+            const selectedRoot = row.querySelector('.selLibraryRoot').value || '';
             const extsInput = row.querySelector('.txtExtensions').value || '';
 
-            if (basePath.length === 0) {
-                errors.push('Target ' + (index + 1) + ': Base path is required.');
-            } else if (!isAbsolutePath(basePath)) {
-                errors.push('Target ' + (index + 1) + ': Base path must be an absolute path (e.g. /inbox or C:\\inbox).');
+            if (selectedRoot.length === 0) {
+                errors.push('Target ' + (index + 1) + ': Select a Jellyfin library folder.');
+            } else {
+                try {
+                    const parsed = JSON.parse(selectedRoot);
+                    if (!parsed.libraryId || !parsed.libraryPath) {
+                        errors.push('Target ' + (index + 1) + ': Invalid library folder selection.');
+                    }
+                } catch (_) {
+                    errors.push('Target ' + (index + 1) + ': Invalid library folder selection.');
+                }
             }
 
             const extParts = extsInput.split(',').map(e => e.trim()).filter(e => e.length > 0);
@@ -215,10 +238,10 @@
 
         rows.forEach((row, index) => {
             const id = (config.Targets && config.Targets[index] && config.Targets[index].Id) || null;
-            const displayName = row.querySelector('.txtDisplayName').value || '';
-            const basePath = row.querySelector('.txtBasePath').value || '';
+            const selectedRootRaw = row.querySelector('.selLibraryRoot')?.value || '';
+            let selectedRoot = null;
+            try { selectedRoot = selectedRootRaw ? JSON.parse(selectedRootRaw) : null; } catch (_) { selectedRoot = null; }
             const accessMode = row.querySelector('.selAccessMode')?.value || 'AllUsers';
-            const createUserSubfolder = row.querySelector('.chkUserSubfolder').checked;
             const maxGb = parseInt(row.querySelector('.txtMaxSize').value || '20', 10);
             const maxBytes = maxGb * 1024 * 1024 * 1024;
             const exts = row.querySelector('.txtExtensions').value || '';
@@ -235,10 +258,10 @@
 
             targets.push({
                 Id: id || null,
-                DisplayName: displayName,
-                BasePath: basePath,
+                LibraryId: selectedRoot && selectedRoot.libraryId ? selectedRoot.libraryId : '',
+                LibraryName: selectedRoot && selectedRoot.libraryName ? selectedRoot.libraryName : '',
+                LibraryPath: selectedRoot && selectedRoot.libraryPath ? selectedRoot.libraryPath : '',
                 AccessMode: accessMode,
-                CreateUserSubfolder: createUserSubfolder,
                 MaxFileSizeBytes: maxBytes,
                 AllowedExtensions: allowedExtensions,
             });
@@ -258,17 +281,39 @@
         });
     }
 
+    function loadLibraryRoots() {
+        return ApiClient.ajax({
+            type: 'GET',
+            url: ApiClient.getUrl('Library/VirtualFolders'),
+            dataType: 'json'
+        }).then(function (resp) {
+            const raw = Array.isArray(resp) ? resp : [];
+            return raw.flatMap(function (folder) {
+                const libraryId = folder.ItemId || folder.itemId || '';
+                const libraryName = folder.Name || folder.name || '';
+                const locations = folder.Locations || folder.locations || [];
+                return locations.map(function (libraryPath) {
+                    return { libraryId: libraryId, libraryName: libraryName, libraryPath: libraryPath };
+                });
+            }).filter(function (x) { return x.libraryId && x.libraryPath; });
+        });
+    }
+
     function loadFromServer(page) {
         Dashboard.showLoadingMsg();
-        ApiClient.getPluginConfiguration(pluginId).then(config => {
-            config = config || {};
+        Promise.all([
+            ApiClient.getPluginConfiguration(pluginId),
+            loadLibraryRoots()
+        ]).then(function (results) {
+            const config = results[0] || {};
+            page.availableLibraryRoots = results[1] || [];
             ensureTargetIds(config);
             page.currentConfig = config;
             loadConfiguration(page, config);
             Dashboard.hideLoadingMsg();
-        }, () => {
+        }, function () {
             Dashboard.hideLoadingMsg();
-            Dashboard.alert('Failed to load Upload Inbox configuration.');
+            Dashboard.alert('Failed to load Upload Inbox configuration or Jellyfin libraries.');
         });
     }
 
@@ -296,12 +341,13 @@
     function onAddTargetClick(page) {
         const config = page.currentConfig || { Targets: [] };
         config.Targets = config.Targets || [];
+        const firstRoot = (page.availableLibraryRoots || [])[0] || null;
         config.Targets.push({
             Id: (window.crypto && window.crypto.randomUUID) ? window.crypto.randomUUID() : Date.now().toString(),
-            DisplayName: '',
-            BasePath: '',
+            LibraryId: firstRoot ? firstRoot.libraryId : '',
+            LibraryName: firstRoot ? firstRoot.libraryName : '',
+            LibraryPath: firstRoot ? firstRoot.libraryPath : '',
             AccessMode: 'AllUsers',
-            CreateUserSubfolder: true,
             MaxFileSizeBytes: 20 * 1024 * 1024 * 1024,
             AllowedExtensions: [],
         });

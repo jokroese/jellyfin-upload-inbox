@@ -14,8 +14,7 @@ public class FilePathPolicyTests
         var target = new UploadTarget
         {
             Id = "t1",
-            BasePath = Path.GetTempPath(),
-            CreateUserSubfolder = false,
+            LibraryPath = Path.GetTempPath(),
             MaxFileSizeBytes = long.MaxValue,
         };
         target.AllowedExtensions.Add("mkv");
@@ -41,8 +40,7 @@ public class FilePathPolicyTests
         var target = new UploadTarget
         {
             Id = "t2",
-            BasePath = baseDir,
-            CreateUserSubfolder = false,
+            LibraryPath = baseDir,
             MaxFileSizeBytes = long.MaxValue,
         };
 
@@ -66,8 +64,7 @@ public class FilePathPolicyTests
         var target = new UploadTarget
         {
             Id = "t3",
-            BasePath = baseDir,
-            CreateUserSubfolder = false,
+            LibraryPath = baseDir,
             MaxFileSizeBytes = long.MaxValue,
         };
 

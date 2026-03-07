@@ -9,6 +9,6 @@ services:
       - ./jf-config:/config
       - ./jf-cache:/cache
 
-      # Upload destination used by this plugin in local dev
-      - ./inbox:/inbox
+      # Media library root used by this plugin in local dev
+      - ./media:/media
     restart: unless-stopped

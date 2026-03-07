@@ -20,7 +20,7 @@ public sealed class JellyfinFixture : IAsyncLifetime
     private IContainer? _container;
     private string? _configDir;
 
-    public string InboxDir { get; private set; } = string.Empty;
+    public string MediaDir { get; private set; } = string.Empty;
     public JellyfinClient Client { get; private set; } = null!;
     public Guid AdminUserId { get; private set; }
 
@@ -29,7 +29,7 @@ public sealed class JellyfinFixture : IAsyncLifetime
     public async Task InitializeAsync()
     {
         _configDir = CreateTempDir("jf-config");
-        InboxDir = CreateTempDir("jf-inbox");
+        MediaDir = CreateTempDir("jf-media");
 
         CopyPluginIntoConfig(_configDir);
 
@@ -37,7 +37,7 @@ public sealed class JellyfinFixture : IAsyncLifetime
             .WithImage(JellyfinImage)
             .WithPortBinding(JellyfinPort, assignRandomHostPort: true)
             .WithBindMount(_configDir, "/config")
-            .WithBindMount(InboxDir, "/inbox")
+            .WithBindMount(MediaDir, "/media")
             .WithEnvironment("JELLYFIN_PublishedServerUrl", "http://localhost")
             .WithWaitStrategy(Wait.ForUnixContainer().UntilHttpRequestIsSucceeded(r => r.ForPort(JellyfinPort)))
             .Build();
@@ -66,6 +66,13 @@ public sealed class JellyfinFixture : IAsyncLifetime
             ?? throw new InvalidOperationException("No UserId after authentication."));
     }
 
+    public string CreateLibraryMount(string name)
+    {
+        var dir = Path.Combine(MediaDir, name);
+        Directory.CreateDirectory(dir);
+        return dir;
+    }
+
     public async Task DisposeAsync()
     {
         Client?.Dispose();
@@ -77,7 +84,7 @@ public sealed class JellyfinFixture : IAsyncLifetime
         }
 
         TryDeleteDir(_configDir);
-        TryDeleteDir(InboxDir);
+        TryDeleteDir(MediaDir);
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

@@ -1,7 +1,7 @@
 # Extra safety: ignore dev runtime state
 jf-config/
 jf-cache/
-inbox/
+media/
 .env
 
 # OS cruft

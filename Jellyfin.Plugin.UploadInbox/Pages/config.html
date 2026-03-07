@@ -47,7 +47,7 @@
                     </div>
                     <p>Configure upload targets.</p>
                     <div class="uploadInboxConfigGuidance" style="margin-bottom: 1em; padding: 0.75em; background: rgba(255,255,255,0.06); border-radius: 4px;">
-                        <strong>Path and permissions:</strong> Base path must be an absolute path on the server. The Jellyfin process must have write access to that directory. Docker users: use a path visible inside the container (e.g. <code>/inbox</code>), not a host-only path.
+                        <strong>Library-backed uploads only:</strong> Each target must point at an existing Jellyfin library root folder. Add the library in Jellyfin first, then select that library folder here. Uploads go directly into that library root so Jellyfin can pick them up through its normal library flow.
                     </div>
 
                     <div class="sectionTitleContainer">
