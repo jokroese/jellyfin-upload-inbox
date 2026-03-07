@@ -1,6 +1,6 @@
 # Release on version tags (v*). Builds plugin, runs unit + integration tests,
-# creates GitHub Release with ZIP/checksums, then generates manifest.json and
-# publishes it to gh-pages for repository-based installs.
+# creates GitHub Release with ZIP/checksums, generates manifest.json, and
+# deploys it to GitHub Pages via Actions.
 name: Release
 
 on:
@@ -13,8 +13,9 @@ jobs:
     name: Build and release
     runs-on: ubuntu-latest
     permissions:
-      contents: write  # create release and upload assets
-
+      contents: write
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -28,12 +29,10 @@ jobs:
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           VERSION="${TAG#v}"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "Version: $VERSION"
 
       - name: Stamp build.yaml version
         run: |
           sed -i "s/^version: .*/version: \"${{ steps.version.outputs.version }}\"/" build.yaml
-          grep '^version:' build.yaml
 
       - name: Install .NET 9 SDK
         uses: actions/setup-dotnet@v4
@@ -83,9 +82,8 @@ jobs:
       - name: Package release ZIP and SHA-256
         run: |
           VERSION="${{ steps.version.outputs.version }}" ./scripts/package-release.sh
-          ls -la dist/
 
-      - name: Generate MD5 for repository manifest
+      - name: Generate MD5 for manifest
         run: |
           cd dist
           ZIP="UploadInbox_${{ steps.version.outputs.version }}.zip"
@@ -105,11 +103,53 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Generate manifest.json and publish to gh-pages
-        uses: Kevinjil/jellyfin-plugin-repo-action@v0.4.3
+      - name: Build Pages payload
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          REPO: ${{ github.repository }}
+        run: |
+          mkdir -p pages
+          ZIP="UploadInbox_${VERSION}.zip"
+          MD5="$(cat dist/${ZIP}.md5)"
+          cat > pages/manifest.json <<EOF
+          [
+            {
+              "name": "Upload Inbox",
+              "guid": "b3ff3bcd-9b77-4a5e-9c22-3c5236757d12",
+              "version": "${VERSION}",
+              "targetAbi": "10.11.0.0",
+              "framework": "net9.0",
+              "overview": "Upload files directly to a configured server inbox from Jellyfin.",
+              "description": "Adds an Upload Inbox page to Jellyfin so authenticated users can upload files into configured folders on the server, with per-target permissions, extension allowlists, file size limits, and resumable chunked uploads.",
+              "category": "General",
+              "owner": "jokroese",
+              "artifacts": [
+                {
+                  "url": "https://github.com/${REPO}/releases/download/v${VERSION}/${ZIP}",
+                  "checksum": "${MD5}",
+                  "checksumType": "md5"
+                }
+              ]
+            }
+          ]
+          EOF
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
         with:
-          githubToken: ${{ secrets.GITHUB_TOKEN }}
-          repository: ${{ github.repository }}
-          pagesBranch: gh-pages
-          pagesFile: manifest.json
-          ignorePrereleases: "true"
+          path: pages
+
+  deploy-pages:
+    name: Deploy manifest to Pages
+    needs: release
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

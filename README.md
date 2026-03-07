@@ -86,5 +86,5 @@ See [TESTING.md](TESTING.md) for integration tests and [dev/README.md](dev/READM
 ### Releasing (maintainers)
 
 - Version is driven by Git tags: `v1.0.0.0` → release 1.0.0.0. Push a tag to trigger the release workflow.
-- **GitHub Pages must be enabled** for the repository: **Settings → Pages → Source**: deploy from branch **gh-pages** (root). The release workflow publishes `manifest.json` to that branch so the repository URL works.
+- **GitHub Pages must be enabled** for the repository: **Settings → Pages → Source**: **GitHub Actions**. The release workflow generates `manifest.json` and deploys it via Actions so the repository URL works.
 - See [RELEASE-CHECKLIST.md](RELEASE-CHECKLIST.md) for a step-by-step release and install-validation checklist.
