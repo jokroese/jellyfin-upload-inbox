@@ -21,10 +21,13 @@ public sealed class UploadEndToEndTest : IClassFixture<JellyfinFixture>
     [Fact(Timeout = 300_000)]
     public async Task Upload_SmallFile_AppearsInInbox()
     {
-        // ── Create a Jellyfin library rooted at /media ───────────────────────
-        await _fx.Client.CreateLibraryAsync("Upload Library Small", "movies", "/media");
+        var libraryRootHost = _fx.CreateLibraryMount("small");
+        const string libraryRootContainer = "/media/small";
+
+        // ── Create a Jellyfin library rooted at /media/small ─────────────────
+        await _fx.Client.CreateLibraryAsync("Upload Library Small", "movies", libraryRootContainer);
         var library = (await _fx.Client.GetVirtualFoldersAsync())
-            .Single(x => x.Locations.Contains("/media", StringComparer.Ordinal));
+            .Single(x => x.Locations.Contains(libraryRootContainer, StringComparer.Ordinal));
 
         // ── Configure plugin with one target bound to that library root ─────
         var targetId = Guid.NewGuid().ToString("N");
@@ -38,7 +41,7 @@ public sealed class UploadEndToEndTest : IClassFixture<JellyfinFixture>
                     Id = targetId,
                     LibraryId = library.ItemId,
                     LibraryName = library.Name,
-                    LibraryPath = "/media",
+                    LibraryPath = libraryRootContainer,
                     AccessMode = "AllUsers",
                     MaxFileSizeBytes = 10 * 1024 * 1024L,
                     AllowedExtensions = Array.Empty<string>(),
@@ -70,7 +73,7 @@ public sealed class UploadEndToEndTest : IClassFixture<JellyfinFixture>
         Assert.False(string.IsNullOrEmpty(result.StoredFileName));
 
         // ── Assert file is on the host filesystem under the library root ─────
-        var storedPath = Path.Combine(_fx.MediaDir, result.StoredFileName);
+        var storedPath = Path.Combine(libraryRootHost, result.StoredFileName);
         Assert.True(File.Exists(storedPath), $"Expected file at: {storedPath}");
 
         var stored = await File.ReadAllBytesAsync(storedPath);
@@ -80,10 +83,13 @@ public sealed class UploadEndToEndTest : IClassFixture<JellyfinFixture>
     [Fact(Timeout = 300_000)]
     public async Task Upload_MultiChunk_AppearsInInbox()
     {
-        // ── Create a Jellyfin library rooted at /media ───────────────────────
-        await _fx.Client.CreateLibraryAsync("Upload Library Multi", "movies", "/media");
+        var libraryRootHost = _fx.CreateLibraryMount("multi");
+        const string libraryRootContainer = "/media/multi";
+
+        // ── Create a Jellyfin library rooted at /media/multi ─────────────────
+        await _fx.Client.CreateLibraryAsync("Upload Library Multi", "movies", libraryRootContainer);
         var library = (await _fx.Client.GetVirtualFoldersAsync())
-            .Single(x => x.Locations.Contains("/media", StringComparer.Ordinal));
+            .Single(x => x.Locations.Contains(libraryRootContainer, StringComparer.Ordinal));
 
         // ── Configure plugin using that library root ─────────────────────────
         var targetId = Guid.NewGuid().ToString("N");
@@ -97,7 +103,7 @@ public sealed class UploadEndToEndTest : IClassFixture<JellyfinFixture>
                     Id = targetId,
                     LibraryId = library.ItemId,
                     LibraryName = library.Name,
-                    LibraryPath = "/media",
+                    LibraryPath = libraryRootContainer,
                     AccessMode = "AllUsers",
                     MaxFileSizeBytes = 10 * 1024 * 1024L,
                     AllowedExtensions = Array.Empty<string>(),
@@ -128,7 +134,7 @@ public sealed class UploadEndToEndTest : IClassFixture<JellyfinFixture>
 
         var result = await _fx.Client.FinaliseAsync(session.UploadId);
 
-        var storedPath = Path.Combine(_fx.MediaDir, result.StoredFileName);
+        var storedPath = Path.Combine(libraryRootHost, result.StoredFileName);
         Assert.True(File.Exists(storedPath), $"Expected file at: {storedPath}");
 
         var stored = await File.ReadAllBytesAsync(storedPath);

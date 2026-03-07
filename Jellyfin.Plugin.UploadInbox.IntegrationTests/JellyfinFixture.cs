@@ -66,6 +66,13 @@ public sealed class JellyfinFixture : IAsyncLifetime
             ?? throw new InvalidOperationException("No UserId after authentication."));
     }
 
+    public string CreateLibraryMount(string name)
+    {
+        var dir = Path.Combine(MediaDir, name);
+        Directory.CreateDirectory(dir);
+        return dir;
+    }
+
     public async Task DisposeAsync()
     {
         Client?.Dispose();
