@@ -163,6 +163,51 @@
         });
     }
 
+    function isAbsolutePath(path) {
+        const s = (path || '').trim();
+        if (s.length === 0) return false;
+        if (s.startsWith('/')) return true;
+        if (/^[A-Za-z]:[/\\]/.test(s)) return true;
+        return false;
+    }
+
+    function validateExtensionEntry(ext) {
+        const t = (ext || '').trim();
+        if (t.length === 0) return { valid: true, normalized: null };
+        if (/[\s/\\]/.test(t)) return { valid: false };
+        const normalized = t.startsWith('.') ? t.slice(1) : t;
+        if (normalized.length === 0) return { valid: false };
+        return { valid: true, normalized: normalized };
+    }
+
+    function validateTargetsFromPage(page, config) {
+        const container = getTargetsContainer(page);
+        const rows = container.querySelectorAll('.uploadTargetRow');
+        const errors = [];
+
+        rows.forEach((row, index) => {
+            const basePath = (row.querySelector('.txtBasePath').value || '').trim();
+            const extsInput = row.querySelector('.txtExtensions').value || '';
+
+            if (basePath.length === 0) {
+                errors.push('Target ' + (index + 1) + ': Base path is required.');
+            } else if (!isAbsolutePath(basePath)) {
+                errors.push('Target ' + (index + 1) + ': Base path must be an absolute path (e.g. /inbox or C:\\inbox).');
+            }
+
+            const extParts = extsInput.split(',').map(e => e.trim()).filter(e => e.length > 0);
+            for (let i = 0; i < extParts.length; i++) {
+                const r = validateExtensionEntry(extParts[i]);
+                if (!r.valid) {
+                    errors.push('Target ' + (index + 1) + ': Invalid extension entry (no spaces or path characters; e.g. mp4, mkv).');
+                    break;
+                }
+            }
+        });
+
+        return errors;
+    }
+
     function readConfigurationFromPage(page, config) {
         const targets = [];
         const container = getTargetsContainer(page);
@@ -181,7 +226,12 @@
             const allowedExtensions = exts
                 .split(',')
                 .map(e => e.trim())
-                .filter(e => e.length > 0);
+                .filter(e => e.length > 0)
+                .map(e => {
+                    const r = validateExtensionEntry(e);
+                    return r.valid && r.normalized ? r.normalized : null;
+                })
+                .filter(Boolean);
 
             targets.push({
                 Id: id || null,
@@ -226,6 +276,12 @@
         e.preventDefault();
         const config = page.currentConfig || {};
         readConfigurationFromPage(page, config);
+
+        const errors = validateTargetsFromPage(page, config);
+        if (errors.length > 0) {
+            Dashboard.alert(errors.join('\n'));
+            return;
+        }
 
         Dashboard.showLoadingMsg();
         ApiClient.updatePluginConfiguration(pluginId, config).then(() => {

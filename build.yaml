@@ -4,13 +4,14 @@ guid: "b3ff3bcd-9b77-4a5e-9c22-3c5236757d12"
 version: "1.0.0.0"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
-overview: "Short description about your plugin"
+overview: "Upload files directly to a configured server inbox from Jellyfin."
 description: >
-  This is a longer description that can span more than one
-  line and include details about your plugin.
+  Adds an Upload Inbox page to Jellyfin so authenticated users can upload files
+  into configured folders on the server, with per-target permissions,
+  extension allowlists, file size limits, and resumable chunked uploads.
 category: "General"
-owner: "jellyfin"
+owner: "jokroese"
 artifacts:
-- "Jellyfin.Plugin.UploadInbox.dll"
+  - "Jellyfin.Plugin.UploadInbox.dll"
 changelog: >
-  changelog
+  Initial public release.
