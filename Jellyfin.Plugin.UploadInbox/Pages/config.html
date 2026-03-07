@@ -5,35 +5,46 @@
     <title>Upload Inbox Configuration</title>
 </head>
 <body>
-    <style>
-        .uploadInboxConfigPage .uploadTargetRow {
-            padding: 0.75em 0;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-        }
-
-        @media (min-width: 900px) {
-            .uploadInboxConfigPage .uploadTargetFields {
-                display: grid;
-                grid-template-columns: repeat(2, minmax(0, 1fr));
-                gap: 0.75em 1.25em;
-                align-items: start;
-            }
-
-            .uploadInboxConfigPage .uploadTargetActions {
-                margin-top: 0.5em;
-            }
-        }
-    </style>
-
     <div id="UploadInboxConfigPage"
          data-role="page"
          class="page type-interior pluginConfigurationPage uploadInboxConfigPage"
          data-controller="__plugin/UploadInbox/config.js"
          data-require="emby-input,emby-button,emby-select,emby-checkbox">
+        <style>
+            .uploadInboxConfigPage .content-primary {
+                max-width: 54em;
+                padding: 1.5em 2em;
+            }
+
+            .uploadInboxConfigPage .uploadTargetRow {
+                padding: 0.75em 0;
+                border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            }
+
+            @media (min-width: 900px) {
+                .uploadInboxConfigPage .uploadTargetFields {
+                    display: grid;
+                    grid-template-columns: repeat(2, minmax(0, 1fr));
+                    gap: 0.75em 1.25em;
+                    align-items: start;
+                }
+
+                .uploadInboxConfigPage .uploadTargetActions {
+                    margin-top: 0.5em;
+                }
+            }
+        </style>
         <div data-role="content">
-            <div class="content-primary">
+            <div class="content-primary" style="max-width:54em; padding:1.5em 2em;">
                 <form id="UploadInboxConfigForm" class="uploadInboxConfigForm">
-                    <h1>Upload Inbox</h1>
+                    <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:0.5em; margin-bottom:1em;">
+                        <h1 style="margin:0;">Upload Inbox</h1>
+                        <a href="#/configurationpage?name=UploadInbox"
+                           class="emby-button raised"
+                           style="text-decoration:none;">
+                            Go to Upload page
+                        </a>
+                    </div>
                     <p>Configure upload targets.</p>
 
                     <div class="sectionTitleContainer">
