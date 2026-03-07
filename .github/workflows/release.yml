@@ -1,6 +1,5 @@
-# Release on version tags (v*). Builds plugin, runs unit + integration tests,
-# creates GitHub Release with ZIP/checksums, generates manifest.json, and
-# deploys it to GitHub Pages via Actions.
+# Release on version tags (v*). Builds plugin, runs tests, creates a GitHub
+# Release, generates a modern Jellyfin repository manifest, and publishes it to GitHub Pages.
 name: Release
 
 on:
@@ -15,6 +14,7 @@ jobs:
     permissions:
       contents: write
     outputs:
+      tag: ${{ steps.version.outputs.tag }}
       version: ${{ steps.version.outputs.version }}
     steps:
       - name: Checkout
@@ -103,36 +103,38 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build Pages payload
+      - name: Install Python dependencies for manifest
+        run: python -m pip install pyyaml
+
+      - name: Build Jellyfin repository manifest
         env:
           VERSION: ${{ steps.version.outputs.version }}
+          TAG: ${{ steps.version.outputs.tag }}
           REPO: ${{ github.repository }}
         run: |
           mkdir -p pages
-          ZIP="UploadInbox_${VERSION}.zip"
-          MD5="$(cat dist/${ZIP}.md5)"
-          cat > pages/manifest.json <<EOF
-          [
-            {
-              "name": "Upload Inbox",
-              "guid": "b3ff3bcd-9b77-4a5e-9c22-3c5236757d12",
-              "version": "${VERSION}",
-              "targetAbi": "10.11.0.0",
-              "framework": "net9.0",
-              "overview": "Upload files directly to a configured server inbox from Jellyfin.",
-              "description": "Adds an Upload Inbox page to Jellyfin so authenticated users can upload files into configured folders on the server, with per-target permissions, extension allowlists, file size limits, and resumable chunked uploads.",
-              "category": "General",
-              "owner": "jokroese",
-              "artifacts": [
-                {
-                  "url": "https://github.com/${REPO}/releases/download/v${VERSION}/${ZIP}",
-                  "checksum": "${MD5}",
-                  "checksumType": "md5"
-                }
-              ]
-            }
-          ]
-          EOF
+          bash scripts/generate-manifest.sh
+
+      - name: Validate generated manifest JSON
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          manifest = json.loads(Path("pages/manifest.json").read_text(encoding="utf-8"))
+          assert isinstance(manifest, list) and manifest, "Manifest must be a non-empty list"
+
+          plugin = manifest[0]
+          for key in ["guid", "name", "description", "overview", "category", "owner", "versions"]:
+              assert key in plugin, f"Missing top-level key: {key}"
+
+          versions = plugin["versions"]
+          assert isinstance(versions, list) and versions, "versions must be a non-empty list"
+
+          version = versions[0]
+          for key in ["version", "targetAbi", "sourceUrl", "checksum", "timestamp"]:
+              assert key in version, f"Missing version key: {key}"
+          PY
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
