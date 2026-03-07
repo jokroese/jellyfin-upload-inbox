@@ -55,7 +55,7 @@ constructing `Jellyfin.Plugin.UploadInbox/bin/Release/net9.0/publish/`. You can 
 | `DirectoryNotFoundException: Plugin publish directory not found` | Plugin not built | Run `dotnet publish` first (see step 1 above) |
 | `TimeoutException: Jellyfin did not become ready` | Docker not running, or image pull slow | Ensure Docker is running; retry after pull completes |
 | Port conflict errors | Another process on 8096 | Testcontainers maps to a random port; this shouldn't happen — check Docker state |
-| 403 on upload | Target not configured, or user ID mismatch | Check the fixture sets up AllowedUserIds correctly |
+| 403 on upload | Target not configured, or (AdminsOnly) user not admin | Ensure target exists and, if AccessMode is AdminsOnly, use an admin user |
 
 ## CI
 

@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using Jellyfin.Plugin.UploadInbox.Configuration;
+using MediaBrowser.Controller.Library;
 
 namespace Jellyfin.Plugin.UploadInbox.Services;
 
@@ -9,6 +10,13 @@ namespace Jellyfin.Plugin.UploadInbox.Services;
 /// </summary>
 public class UploadAuthoriser
 {
+    private readonly IUserManager _userManager;
+
+    public UploadAuthoriser(IUserManager userManager)
+    {
+        _userManager = userManager;
+    }
+
     public bool TryEnsureAllowed(PluginConfiguration configuration, Guid userId, string targetId, out UploadTarget? target)
     {
         target = configuration.Targets.FirstOrDefault(t => string.Equals(t.Id, targetId, StringComparison.Ordinal));
@@ -17,12 +25,34 @@ public class UploadAuthoriser
             return false;
         }
 
-        if (target.AllowedUserIds is null || target.AllowedUserIds.Count == 0)
+        switch (target.AccessMode)
         {
-            return false;
-        }
+            case UploadAccessMode.AllUsers:
+                return true;
 
-        return target.AllowedUserIds.Contains(userId);
+            case UploadAccessMode.AdminsOnly:
+            {
+                if (userId == Guid.Empty)
+                {
+                    return false;
+                }
+
+                var user = _userManager.GetUserById(userId);
+                if (user is null)
+                {
+                    return false;
+                }
+
+                // IUserManager returns a DB entity type; convert to UserDto to read policy flags.
+                // Policy.IsAdministrator is the canonical "admin" bit exposed by Jellyfin's API model.
+                var dto = _userManager.GetUserDto(user);
+                return dto.Policy?.IsAdministrator == true;
+            }
+
+            default:
+                // Future-proof: deny unknown modes.
+                return false;
+        }
     }
 }
 

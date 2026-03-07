@@ -62,6 +62,21 @@
         return btn;
     }
 
+    function appendSelect(container, className, options, value) {
+        const select = document.createElement('select');
+        select.setAttribute('is', 'emby-select');
+        select.className = className;
+        (options || []).forEach(function (opt) {
+            const o = document.createElement('option');
+            o.value = opt.value;
+            o.textContent = opt.text;
+            select.appendChild(o);
+        });
+        if (value != null) select.value = value;
+        container.appendChild(select);
+        return select;
+    }
+
     function createFieldContainer(parent) {
         const c = document.createElement('div');
         c.className = 'inputContainer';
@@ -91,6 +106,18 @@
             appendTextInput(c, 'txtBasePath', target.BasePath);
         }
 
+        // Who can upload?
+        {
+            const c = createFieldContainer(fields);
+            appendLabel(c, 'Who can upload?');
+
+            const mode = target.AccessMode || 'AllUsers';
+            appendSelect(c, 'selAccessMode', [
+                { value: 'AllUsers', text: 'All users (default)' },
+                { value: 'AdminsOnly', text: 'Admins only' }
+            ], mode);
+        }
+
         // Create per-user subfolder
         {
             const c = createFieldContainer(fields);
@@ -113,13 +140,6 @@
             const c = createFieldContainer(fields);
             appendLabel(c, 'Allowed extensions (comma separated, empty = all)');
             appendTextInput(c, 'txtExtensions', (target.AllowedExtensions || []).join(', '));
-        }
-
-        // Allowed users
-        {
-            const c = createFieldContainer(fields);
-            appendLabel(c, 'Admin-only: Allowed user IDs (comma separated GUIDs)');
-            appendTextInput(c, 'txtUsers', (target.AllowedUserIds || []).join(', '));
         }
 
         // Actions
@@ -152,18 +172,13 @@
             const id = (config.Targets && config.Targets[index] && config.Targets[index].Id) || null;
             const displayName = row.querySelector('.txtDisplayName').value || '';
             const basePath = row.querySelector('.txtBasePath').value || '';
+            const accessMode = row.querySelector('.selAccessMode')?.value || 'AllUsers';
             const createUserSubfolder = row.querySelector('.chkUserSubfolder').checked;
             const maxGb = parseInt(row.querySelector('.txtMaxSize').value || '20', 10);
             const maxBytes = maxGb * 1024 * 1024 * 1024;
             const exts = row.querySelector('.txtExtensions').value || '';
-            const usersRaw = row.querySelector('.txtUsers').value || '';
 
             const allowedExtensions = exts
-                .split(',')
-                .map(e => e.trim())
-                .filter(e => e.length > 0);
-
-            const allowedUserIds = usersRaw
                 .split(',')
                 .map(e => e.trim())
                 .filter(e => e.length > 0);
@@ -172,10 +187,10 @@
                 Id: id || null,
                 DisplayName: displayName,
                 BasePath: basePath,
+                AccessMode: accessMode,
                 CreateUserSubfolder: createUserSubfolder,
                 MaxFileSizeBytes: maxBytes,
                 AllowedExtensions: allowedExtensions,
-                AllowedUserIds: allowedUserIds
             });
         });
 
@@ -229,10 +244,10 @@
             Id: (window.crypto && window.crypto.randomUUID) ? window.crypto.randomUUID() : Date.now().toString(),
             DisplayName: '',
             BasePath: '',
+            AccessMode: 'AllUsers',
             CreateUserSubfolder: true,
             MaxFileSizeBytes: 20 * 1024 * 1024 * 1024,
             AllowedExtensions: [],
-            AllowedUserIds: []
         });
         page.currentConfig = config;
         loadConfiguration(page, config);
