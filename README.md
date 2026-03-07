@@ -8,6 +8,14 @@ Upload files directly to a configured server inbox from Jellyfin. Authenticated 
 
 - **Jellyfin:** 10.11.x
 
+## Repository manifest
+
+This project publishes a Jellyfin plugin repository manifest at:
+
+- `https://jokroese.github.io/jellyfin-upload-inbox/manifest.json`
+
+The manifest is generated automatically during tagged releases and follows the modern Jellyfin repository format with top-level plugin metadata and a `versions` array pointing at the released ZIP asset.
+
 ---
 
 ## Install
@@ -86,5 +94,10 @@ See [TESTING.md](TESTING.md) for integration tests and [dev/README.md](dev/READM
 ### Releasing (maintainers)
 
 - Version is driven by Git tags: `v1.0.0.0` → release 1.0.0.0. Push a tag to trigger the release workflow.
-- **GitHub Pages must be enabled** for the repository: **Settings → Pages → Source**: **GitHub Actions**. The release workflow generates `manifest.json` and deploys it via Actions so the repository URL works.
+- **GitHub Pages must be enabled** for the repository: **Settings → Pages → Source**: **GitHub Actions**.
+- The release workflow:
+  - builds and tests the plugin
+  - publishes the ZIP and checksums to GitHub Releases
+  - generates `pages/manifest.json` in Jellyfin's repository format
+  - deploys that manifest to GitHub Pages
 - See [RELEASE-CHECKLIST.md](RELEASE-CHECKLIST.md) for a step-by-step release and install-validation checklist.

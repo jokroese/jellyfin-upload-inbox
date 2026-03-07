@@ -12,7 +12,11 @@ Use this when cutting a new release and validating the distribution path.
 - [ ] Create and push tag, e.g. `git tag v1.0.0.0 && git push origin v1.0.0.0`.
 - [ ] Wait for the [Release](https://github.com/jokroese/jellyfin-upload-inbox/actions) workflow to complete.
 - [ ] Confirm **GitHub Release** exists with assets: `UploadInbox_<version>.zip`, `.zip.sha256`, `.zip.md5`.
-- [ ] Confirm https://jokroese.github.io/jellyfin-upload-inbox/manifest.json returns JSON.
+- [ ] Confirm `https://jokroese.github.io/jellyfin-upload-inbox/manifest.json` returns JSON.
+- [ ] Confirm the manifest contains:
+  - [ ] top-level plugin metadata (`guid`, `name`, `description`, `overview`, `category`, `owner`)
+  - [ ] a `versions` array
+  - [ ] `version`, `targetAbi`, `sourceUrl`, `checksum`, and `timestamp` inside the latest version entry
 
 ## Install validation (first install test completed on Jellyfin 10.11.x)
 
