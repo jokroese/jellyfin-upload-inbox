@@ -8,18 +8,53 @@
     // WeakMap prevents leaks when Jellyfin removes the page element.
     const pageState = new WeakMap();
 
+    function formatTargetLabel(target) {
+        var libraryName = target.displayName || target.DisplayName || 'Library';
+        var destination = target.destinationDisplayName || target.DestinationDisplayName || 'Library root';
+        return libraryName + ' — ' + destination;
+    }
+
+    function updateTargetHint(page, targets) {
+        var select = page.querySelector('.selectTarget');
+        var hint = page.querySelector('.selectedTargetHint');
+        if (!select || !hint) {
+            return;
+        }
+
+        var selectedId = select.value;
+        var target = (targets || []).find(function (t) { return t.id === selectedId || t.Id === selectedId; });
+        if (!target) {
+            hint.textContent = 'Files will be uploaded to the selected library destination.';
+            return;
+        }
+
+        var destination = target.destinationDisplayName || target.DestinationDisplayName || 'Library root';
+        hint.textContent = 'Files will be uploaded to: ' + destination;
+    }
+
     function loadTargets(page) {
-        ApiClient.getPluginConfiguration(pluginId).then(function (config) {
-            config = config || {};
-            var targets = config.Targets || [];
+        ApiClient.ajax({
+            type: 'GET',
+            url: ApiClient.getUrl('uploadinbox/targets'),
+            dataType: 'json'
+        }).then(function (targets) {
+            targets = targets || [];
             var select = page.querySelector('.selectTarget');
             select.innerHTML = '';
             targets.forEach(function (t) {
                 var opt = document.createElement('option');
-                opt.value = t.Id;
-                opt.textContent = (t.LibraryName || 'Library') + ' — ' + (t.LibraryPath || t.Id);
+                opt.value = t.id || t.Id;
+                opt.textContent = formatTargetLabel(t);
                 select.appendChild(opt);
             });
+
+            page.availableTargets = targets;
+            updateTargetHint(page, targets);
+        }, function () {
+            var hint = page.querySelector('.selectedTargetHint');
+            if (hint) {
+                hint.textContent = 'Failed to load upload targets.';
+            }
         });
     }
 
@@ -215,6 +250,11 @@
             if (e.target.files && e.target.files.length) {
                 handleFiles(page, e.target.files);
             }
+        }, { signal: abort.signal });
+
+        var select = page.querySelector('.selectTarget');
+        select.addEventListener('change', function () {
+            updateTargetHint(page, page.availableTargets || []);
         }, { signal: abort.signal });
     }
 

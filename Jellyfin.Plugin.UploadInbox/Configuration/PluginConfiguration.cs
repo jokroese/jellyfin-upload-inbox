@@ -65,6 +65,11 @@ public class UploadTarget
     public string LibraryPath { get; set; } = string.Empty;
 
     /// <summary>
+    /// Gets or sets the optional upload subdirectory within the selected library root.
+    /// </summary>
+    public string UploadSubdirectory { get; set; } = string.Empty;
+
+    /// <summary>
     /// Gets or sets who is allowed to upload to this target.
     /// </summary>
     public UploadAccessMode AccessMode { get; set; } = UploadAccessMode.AllUsers;

@@ -26,18 +26,7 @@ public class FilePathPolicy
         string originalFileName,
         string uploadId)
     {
-        if (string.IsNullOrWhiteSpace(target.LibraryPath))
-        {
-            throw new InvalidOperationException("Target library folder is not configured.");
-        }
-
-        var basePathFull = Path.GetFullPath(target.LibraryPath);
-        if (!Path.IsPathRooted(basePathFull))
-        {
-            throw new InvalidOperationException("Target library folder must be absolute.");
-        }
-
-        var targetDirectory = basePathFull;
+        var targetDirectory = ResolveTargetDirectory(target);
         Directory.CreateDirectory(targetDirectory);
 
         var sanitizedName = SanitizeFileName(originalFileName);
@@ -59,7 +48,7 @@ public class FilePathPolicy
         }
 
         var finalPath = Path.Combine(targetDirectory, sanitizedName);
-        finalPath = EnsureWithinBaseDirectory(basePathFull, finalPath);
+        finalPath = EnsureWithinBaseDirectory(targetDirectory, finalPath);
 
         // Collision policy: append (2), (3), ...
         var attempt = 1;
@@ -80,14 +69,90 @@ public class FilePathPolicy
                 .ToString();
 
             finalPath = Path.Combine(targetDirectory, candidateName);
-            finalPath = EnsureWithinBaseDirectory(basePathFull, finalPath);
+            finalPath = EnsureWithinBaseDirectory(targetDirectory, finalPath);
         }
 
         var tempFileName = sanitizedName + "." + uploadId + ".part";
         var tempPath = Path.Combine(targetDirectory, tempFileName);
-        tempPath = EnsureWithinBaseDirectory(basePathFull, tempPath);
+        tempPath = EnsureWithinBaseDirectory(targetDirectory, tempPath);
 
         return (tempPath, finalPath, Path.GetFileName(finalPath));
+    }
+
+    /// <summary>
+    /// Resolves the effective upload directory for a target.
+    /// </summary>
+    /// <param name="target">Upload target configuration.</param>
+    /// <returns>Absolute path to the effective upload directory.</returns>
+    public string ResolveTargetDirectory(UploadTarget target)
+    {
+        if (string.IsNullOrWhiteSpace(target.LibraryPath))
+        {
+            throw new InvalidOperationException("Target library folder is not configured.");
+        }
+
+        var basePathFull = Path.GetFullPath(target.LibraryPath);
+        if (!Path.IsPathRooted(basePathFull))
+        {
+            throw new InvalidOperationException("Target library folder must be absolute.");
+        }
+
+        var subdirectory = NormalizeUploadSubdirectory(target.UploadSubdirectory);
+        if (string.IsNullOrEmpty(subdirectory))
+        {
+            return basePathFull;
+        }
+
+        var resolved = Path.Combine(basePathFull, subdirectory);
+        return EnsureWithinBaseDirectory(basePathFull, resolved);
+    }
+
+    private static string NormalizeUploadSubdirectory(string? uploadSubdirectory)
+    {
+        if (string.IsNullOrWhiteSpace(uploadSubdirectory))
+        {
+            return string.Empty;
+        }
+
+        var trimmed = uploadSubdirectory.Trim();
+        if (Path.IsPathRooted(trimmed))
+        {
+            throw new InvalidOperationException("Upload subfolder must be a relative path inside the selected library.");
+        }
+
+        var separators = new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar, '/', '\\' };
+        var segments = trimmed
+            .Split(separators, StringSplitOptions.RemoveEmptyEntries);
+
+        if (segments.Length == 0)
+        {
+            return string.Empty;
+        }
+
+        var invalidChars = Path.GetInvalidFileNameChars();
+        var normalizedSegments = new string[segments.Length];
+        for (var i = 0; i < segments.Length; i++)
+        {
+            var segment = segments[i].Trim();
+            if (segment.Length == 0 || string.Equals(segment, ".", StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException("Upload subfolder contains an invalid path segment.");
+            }
+
+            if (string.Equals(segment, "..", StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException("Upload subfolder cannot traverse outside the selected library.");
+            }
+
+            if (segment.IndexOfAny(invalidChars) >= 0)
+            {
+                throw new InvalidOperationException("Upload subfolder contains invalid filesystem characters.");
+            }
+
+            normalizedSegments[i] = segment;
+        }
+
+        return Path.Combine(normalizedSegments);
     }
 
     private static string SanitizeFileName(string fileName)
@@ -136,4 +201,3 @@ public class FilePathPolicy
         return full;
     }
 }
-

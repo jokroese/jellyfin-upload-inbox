@@ -133,8 +133,16 @@
         // Library root
         {
             const c = createFieldContainer(fields);
-            appendLabel(c, 'Library folder');
+            appendLabel(c, 'Library');
             appendSelect(c, 'selLibraryRoot', createLibraryRootOptions(page), getTargetSelectionValue(target));
+        }
+
+        // Upload subfolder
+        {
+            const c = createFieldContainer(fields);
+            appendLabel(c, 'Upload folder');
+            appendTextInput(c, 'txtUploadSubdirectory', target.UploadSubdirectory || '');
+            appendText(c, 'Optional. Example: incoming');
         }
 
         // Who can upload?
@@ -196,6 +204,42 @@
         return { valid: true, normalized: normalized };
     }
 
+    function validateSubdirectoryEntry(value) {
+        const raw = (value || '').trim();
+        if (raw.length === 0) {
+            return { valid: true, normalized: '' };
+        }
+
+        if (/^[\\/]/.test(raw) || /^[A-Za-z]:/.test(raw)) {
+            return { valid: false };
+        }
+
+        const segments = raw.split(/[\\/]+/).filter(Boolean);
+        if (!segments.length) {
+            return { valid: true, normalized: '' };
+        }
+
+        for (let i = 0; i < segments.length; i++) {
+            const segment = segments[i].trim();
+            if (!segment || segment === '.' || segment === '..') {
+                return { valid: false };
+            }
+
+            if (/[<>:"|?*\u0000]/.test(segment)) {
+                return { valid: false };
+            }
+        }
+
+        return {
+            valid: true,
+            normalized: segments.join('/')
+        };
+    }
+
+    function normaliseAjaxJsonResponse(resp) {
+        return (typeof resp === 'string') ? JSON.parse(resp) : resp;
+    }
+
     function validateTargetsFromPage(page, config) {
         const container = getTargetsContainer(page);
         const rows = container.querySelectorAll('.uploadTargetRow');
@@ -204,6 +248,7 @@
         rows.forEach((row, index) => {
             const selectedRoot = row.querySelector('.selLibraryRoot').value || '';
             const extsInput = row.querySelector('.txtExtensions').value || '';
+            const subdirectoryInput = row.querySelector('.txtUploadSubdirectory').value || '';
 
             if (selectedRoot.length === 0) {
                 errors.push('Target ' + (index + 1) + ': Select a Jellyfin library folder.');
@@ -216,6 +261,11 @@
                 } catch (_) {
                     errors.push('Target ' + (index + 1) + ': Invalid library folder selection.');
                 }
+            }
+
+            const subdirectory = validateSubdirectoryEntry(subdirectoryInput);
+            if (!subdirectory.valid) {
+                errors.push('Target ' + (index + 1) + ': Upload folder must be a relative path inside the selected library, for example incoming or movies/incoming.');
             }
 
             const extParts = extsInput.split(',').map(e => e.trim()).filter(e => e.length > 0);
@@ -244,6 +294,8 @@
             const accessMode = row.querySelector('.selAccessMode')?.value || 'AllUsers';
             const maxGb = parseInt(row.querySelector('.txtMaxSize').value || '20', 10);
             const maxBytes = maxGb * 1024 * 1024 * 1024;
+            const uploadSubdirectoryInput = row.querySelector('.txtUploadSubdirectory')?.value || '';
+            const uploadSubdirectory = validateSubdirectoryEntry(uploadSubdirectoryInput);
             const exts = row.querySelector('.txtExtensions').value || '';
 
             const allowedExtensions = exts
@@ -261,6 +313,7 @@
                 LibraryId: selectedRoot && selectedRoot.libraryId ? selectedRoot.libraryId : '',
                 LibraryName: selectedRoot && selectedRoot.libraryName ? selectedRoot.libraryName : '',
                 LibraryPath: selectedRoot && selectedRoot.libraryPath ? selectedRoot.libraryPath : '',
+                UploadSubdirectory: uploadSubdirectory.valid ? uploadSubdirectory.normalized : '',
                 AccessMode: accessMode,
                 MaxFileSizeBytes: maxBytes,
                 AllowedExtensions: allowedExtensions,
@@ -299,6 +352,27 @@
         });
     }
 
+    function validateTargetOnServer(target) {
+        return ApiClient.ajax({
+            type: 'POST',
+            url: ApiClient.getUrl('uploadinbox/validate-target'),
+            data: JSON.stringify(target),
+            contentType: 'application/json',
+            dataType: 'json'
+        }).then(normaliseAjaxJsonResponse);
+    }
+
+    function validateTargetsOnServer(targets) {
+        return Promise.all((targets || []).map(function (target, index) {
+            return validateTargetOnServer(target).then(function (result) {
+                return {
+                    index: index,
+                    result: result || { isValid: false, error: 'Validation failed.' }
+                };
+            });
+        }));
+    }
+
     function loadFromServer(page) {
         Dashboard.showLoadingMsg();
         Promise.all([
@@ -329,12 +403,30 @@
         }
 
         Dashboard.showLoadingMsg();
-        ApiClient.updatePluginConfiguration(pluginId, config).then(() => {
-            Dashboard.processPluginConfigurationUpdateResult();
+        validateTargetsOnServer(config.Targets || []).then(function (results) {
+            const failures = results.filter(function (x) {
+                return !(x.result && (x.result.isValid || x.result.IsValid));
+            });
+
+            if (failures.length > 0) {
+                Dashboard.hideLoadingMsg();
+                Dashboard.alert(failures.map(function (x) {
+                    const error = (x.result && (x.result.error || x.result.Error)) || 'Validation failed.';
+                    return 'Target ' + (x.index + 1) + ': ' + error;
+                }).join('\n'));
+                return;
+            }
+
+            ApiClient.updatePluginConfiguration(pluginId, config).then(() => {
+                Dashboard.processPluginConfigurationUpdateResult();
+                Dashboard.hideLoadingMsg();
+            }, () => {
+                Dashboard.hideLoadingMsg();
+                Dashboard.alert('Failed to save Upload Inbox configuration.');
+            });
+        }, function () {
             Dashboard.hideLoadingMsg();
-        }, () => {
-            Dashboard.hideLoadingMsg();
-            Dashboard.alert('Failed to save Upload Inbox configuration.');
+            Dashboard.alert('Failed to validate upload targets.');
         });
     }
 
@@ -347,6 +439,7 @@
             LibraryId: firstRoot ? firstRoot.libraryId : '',
             LibraryName: firstRoot ? firstRoot.libraryName : '',
             LibraryPath: firstRoot ? firstRoot.libraryPath : '',
+            UploadSubdirectory: '',
             AccessMode: 'AllUsers',
             MaxFileSizeBytes: 20 * 1024 * 1024 * 1024,
             AllowedExtensions: [],

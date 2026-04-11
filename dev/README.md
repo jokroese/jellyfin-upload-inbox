@@ -68,10 +68,10 @@ Jellyfin should now show the plugin under: Dashboard → Plugins.
 
 1. In Jellyfin, create a media library rooted at `/media`
 2. Dashboard → Plugins → Upload Inbox
-3. Add one target and select the `/media` library root
+3. Add one target, select the `/media` library root, and optionally set an upload subfolder such as `incoming`
 4. Save
 
-Uploads now go directly into a configured Jellyfin library root rather than an arbitrary server folder.
+Uploads now go directly into a configured Jellyfin library destination rather than an arbitrary server folder.
 
 ### Notes
 

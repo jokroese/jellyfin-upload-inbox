@@ -42,6 +42,7 @@ public sealed class UploadEndToEndTest : IClassFixture<JellyfinFixture>
                     LibraryId = library.ItemId,
                     LibraryName = library.Name,
                     LibraryPath = libraryRootContainer,
+                    UploadSubdirectory = "incoming",
                     AccessMode = "AllUsers",
                     MaxFileSizeBytes = 10 * 1024 * 1024L,
                     AllowedExtensions = Array.Empty<string>(),
@@ -73,7 +74,8 @@ public sealed class UploadEndToEndTest : IClassFixture<JellyfinFixture>
         Assert.False(string.IsNullOrEmpty(result.StoredFileName));
 
         // ── Assert file is on the host filesystem under the library root ─────
-        var storedPath = Path.Combine(libraryRootHost, result.StoredFileName);
+        var storedPath = Path.Combine(libraryRootHost, "incoming", result.StoredFileName);
+        Assert.True(Directory.Exists(Path.Combine(libraryRootHost, "incoming")));
         Assert.True(File.Exists(storedPath), $"Expected file at: {storedPath}");
 
         var stored = await File.ReadAllBytesAsync(storedPath);
@@ -104,6 +106,7 @@ public sealed class UploadEndToEndTest : IClassFixture<JellyfinFixture>
                     LibraryId = library.ItemId,
                     LibraryName = library.Name,
                     LibraryPath = libraryRootContainer,
+                    UploadSubdirectory = string.Empty,
                     AccessMode = "AllUsers",
                     MaxFileSizeBytes = 10 * 1024 * 1024L,
                     AllowedExtensions = Array.Empty<string>(),
