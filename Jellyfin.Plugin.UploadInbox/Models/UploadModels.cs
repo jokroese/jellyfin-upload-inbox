@@ -88,6 +88,18 @@ public class UploadStatusResponse
 }
 
 /// <summary>
+/// Result of validating an upload target configuration.
+/// </summary>
+public class ValidateUploadTargetResponse
+{
+    public bool IsValid { get; set; }
+
+    public string ResolvedPath { get; set; } = string.Empty;
+
+    public string Error { get; set; } = string.Empty;
+}
+
+/// <summary>
 /// A currently configured Jellyfin library root that can be used as an upload target.
 /// </summary>
 public class LibraryRootInfo
@@ -97,5 +109,17 @@ public class LibraryRootInfo
     public string LibraryName { get; set; } = string.Empty;
 
     public string LibraryPath { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// Information shown to upload users about the configured target destination.
+/// </summary>
+public class UploadTargetInfo
+{
+    public string Id { get; set; } = string.Empty;
+
+    public string DisplayName { get; set; } = string.Empty;
+
+    public string DestinationDisplayName { get; set; } = string.Empty;
 }
 

@@ -75,5 +75,45 @@ public class FilePathPolicyTests
         Assert.NotEqual(existingPath, result.FinalFilePath);
         Assert.Contains("file (", Path.GetFileNameWithoutExtension(result.FinalFilePath), StringComparison.OrdinalIgnoreCase);
     }
+
+    [Fact]
+    public void CreatePaths_UsesUploadSubdirectoryInsideLibrary()
+    {
+        var baseDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(baseDir);
+
+        var target = new UploadTarget
+        {
+            Id = "t4",
+            LibraryPath = baseDir,
+            UploadSubdirectory = "Incoming/Movies",
+            MaxFileSizeBytes = long.MaxValue,
+        };
+
+        var policy = new FilePathPolicy();
+        var userId = Guid.NewGuid();
+
+        var result = policy.CreatePaths(target, userId, "movie.mkv", "upload5");
+
+        Assert.StartsWith(Path.Combine(baseDir, "Incoming", "Movies"), result.FinalFilePath, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ResolveTargetDirectory_RejectsTraversalInUploadSubdirectory()
+    {
+        var baseDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(baseDir);
+
+        var target = new UploadTarget
+        {
+            Id = "t5",
+            LibraryPath = baseDir,
+            UploadSubdirectory = "../escape",
+            MaxFileSizeBytes = long.MaxValue,
+        };
+
+        var policy = new FilePathPolicy();
+        Assert.Throws<InvalidOperationException>(() => policy.ResolveTargetDirectory(target));
+    }
 }
 

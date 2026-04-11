@@ -1,7 +1,7 @@
 ---
 name: "Upload Inbox"
 guid: "b3ff3bcd-9b77-4a5e-9c22-3c5236757d12"
-version: "1.0.0.0"
+version: "1.0.0.4"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
 overview: "Upload files directly to a configured server inbox from Jellyfin."
@@ -14,4 +14,5 @@ owner: "jokroese"
 artifacts:
   - "Jellyfin.Plugin.UploadInbox.dll"
 changelog: >
-  Initial public release.
+  Add optional upload subfolder per target so files can land in a subdirectory
+  inside each library root.

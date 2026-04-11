@@ -1,6 +1,7 @@
 using System;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Plugin.UploadInbox.Configuration;
@@ -25,6 +26,7 @@ public class UploadController : ControllerBase
     private const long DefaultChunkSizeBytes = 8L * 1024 * 1024;
     private const long MaxChunkSizeBytes = 64L * 1024 * 1024;
 
+    private readonly FilePathPolicy _filePathPolicy;
     private readonly UploadAuthoriser _uploadAuthoriser;
     private readonly LibraryTargetResolver _libraryTargetResolver;
     private readonly UploadSessionStore _sessionStore;
@@ -32,11 +34,13 @@ public class UploadController : ControllerBase
 
     public UploadController(
         UploadAuthoriser uploadAuthoriser,
+        FilePathPolicy filePathPolicy,
         LibraryTargetResolver libraryTargetResolver,
         UploadSessionStore sessionStore,
         ILogger<UploadController> logger)
     {
         _uploadAuthoriser = uploadAuthoriser;
+        _filePathPolicy = filePathPolicy;
         _libraryTargetResolver = libraryTargetResolver;
         _sessionStore = sessionStore;
         _logger = logger;
@@ -131,7 +135,7 @@ public class UploadController : ControllerBase
         }
         catch (UnauthorizedAccessException)
         {
-            return BadRequest("Jellyfin cannot write to the selected library folder. Check filesystem permissions for that library root.");
+            return BadRequest("Jellyfin cannot write to the selected upload destination. Check filesystem permissions for the selected library and upload subfolder.");
         }
         catch (DirectoryNotFoundException)
         {
@@ -142,6 +146,122 @@ public class UploadController : ControllerBase
             _logger.LogError(ex, "CreateUpload failed for target {TargetId}", request.TargetId);
             return StatusCode(StatusCodes.Status500InternalServerError, "Failed to create upload session.");
         }
+    }
+
+    /// <summary>
+    /// Validates that a target resolves to a writable destination inside the selected library.
+    /// </summary>
+    [HttpPost("validate-target")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public ActionResult<ValidateUploadTargetResponse> ValidateTarget([FromBody] UploadTarget target)
+    {
+        if (target is null)
+        {
+            return BadRequest("Missing request body.");
+        }
+
+        if (!_libraryTargetResolver.TryResolveTarget(target, out var resolvedLibraryRoot, out var libraryError) ||
+            resolvedLibraryRoot is null)
+        {
+            return Ok(new ValidateUploadTargetResponse
+            {
+                IsValid = false,
+                Error = libraryError ?? "The selected Jellyfin library folder is not available.",
+            });
+        }
+
+        target.LibraryId = resolvedLibraryRoot.LibraryId;
+        target.LibraryName = resolvedLibraryRoot.LibraryName;
+        target.LibraryPath = resolvedLibraryRoot.LibraryPath;
+
+        try
+        {
+            var resolvedPath = _filePathPolicy.ResolveTargetDirectory(target);
+            Directory.CreateDirectory(resolvedPath);
+
+            var probePath = Path.Combine(
+                resolvedPath,
+                ".uploadinbox-write-test-" + Guid.NewGuid().ToString("N"));
+
+            try
+            {
+                using var stream = new FileStream(
+                    probePath,
+                    FileMode.CreateNew,
+                    FileAccess.Write,
+                    FileShare.None,
+                    bufferSize: 1,
+                    FileOptions.None);
+                stream.WriteByte(0);
+            }
+            finally
+            {
+                if (System.IO.File.Exists(probePath))
+                {
+                    System.IO.File.Delete(probePath);
+                }
+            }
+
+            return Ok(new ValidateUploadTargetResponse
+            {
+                IsValid = true,
+                ResolvedPath = resolvedPath,
+            });
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Ok(new ValidateUploadTargetResponse
+            {
+                IsValid = false,
+                Error = "Jellyfin cannot write to the selected upload destination. Choose a writable subfolder inside the library or adjust filesystem permissions.",
+            });
+        }
+        catch (DirectoryNotFoundException)
+        {
+            return Ok(new ValidateUploadTargetResponse
+            {
+                IsValid = false,
+                Error = "The selected upload destination does not exist and could not be created.",
+            });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Ok(new ValidateUploadTargetResponse
+            {
+                IsValid = false,
+                Error = ex.Message,
+            });
+        }
+        catch (IOException ex)
+        {
+            return Ok(new ValidateUploadTargetResponse
+            {
+                IsValid = false,
+                Error = ex.Message,
+            });
+        }
+    }
+
+    [HttpGet("targets")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public ActionResult<UploadTargetInfo[]> GetConfiguredTargets()
+    {
+        var configuration = Plugin.Instance?.Configuration;
+        var targets = configuration?.Targets ?? new System.Collections.Generic.List<UploadTarget>();
+
+        var result = targets
+            .Select(t => new UploadTargetInfo
+            {
+                Id = t.Id,
+                DisplayName = string.IsNullOrWhiteSpace(t.LibraryName) ? "Library" : t.LibraryName,
+                DestinationDisplayName = string.IsNullOrWhiteSpace(t.UploadSubdirectory)
+                    ? "Library root"
+                    : t.UploadSubdirectory,
+            })
+            .ToArray();
+
+        return Ok(result);
     }
 
     /// <summary>

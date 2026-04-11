@@ -2,7 +2,7 @@
 
 [![Releases](https://img.shields.io/github/v/release/jokroese/jellyfin-upload-inbox?include_prereleases=&sort=semver)](https://github.com/jokroese/jellyfin-upload-inbox/releases)
 
-Upload files directly into existing Jellyfin library root folders. Authenticated users get an **Upload Inbox** page; uploads are chunked (resumable), with per-target permissions, extension allowlists, and file size limits.
+Upload files directly into existing Jellyfin libraries, with an optional upload subfolder inside each selected library root. Authenticated users get an **Upload Inbox** page; uploads are chunked (resumable), with per-target permissions, extension allowlists, and file size limits.
 
 ## Compatibility
 
@@ -46,14 +46,14 @@ Manual install is a fallback for offline or locked-down deployments, not the pri
 ## Notes for server admins
 
 - **Reverse proxy:** Uploads may fail unless body-size limits are raised (e.g. `client_max_body_size` in nginx).
-- **Libraries:** Upload targets now point only at existing Jellyfin library root folders.
+- **Libraries:** Upload targets point at existing Jellyfin library roots, with an optional upload subfolder inside the selected library.
 - **Docker:** Use paths visible inside the container (e.g. `/inbox`), not host-only paths.
 
 ---
 
 ## After installation
 
-- **Dashboard → Plugins → Upload Inbox → Settings** to add upload targets by selecting an existing Jellyfin library root folder.
+- **Dashboard → Plugins → Upload Inbox → Settings** to add upload targets by selecting an existing Jellyfin library root and, optionally, an upload subfolder inside it.
 - The **Upload Inbox** item appears in the main menu for allowed users.
 
 ---
